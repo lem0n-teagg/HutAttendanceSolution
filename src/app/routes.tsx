@@ -5,11 +5,14 @@ import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import VolunteerDashboard from './pages/VolunteerDashboard';
 import AddParticipant from './pages/AddParticipant';
+import AddParticipantMultiStep from './pages/AddParticipantMultiStep';
 import SearchParticipant from './pages/SearchParticipant';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Training from './pages/Training';
 import Approvals from './pages/Approvals';
+import Programs from './pages/Programs';
+import Debug from './pages/Debug';
 
 // Root layout that wraps everything with AuthProvider
 function RootLayout() {
@@ -130,6 +133,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/add-participant-multistep',
+        element: (
+          <ProtectedRoute>
+            <AddParticipantMultiStep />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/search',
         element: (
           <ProtectedRoute>
@@ -166,6 +177,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Approvals />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/programs',
+        element: (
+          <ProtectedRoute>
+            <Programs />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/debug',
+        element: (
+          <ProtectedRoute>
+            <Debug />
           </ProtectedRoute>
         ),
       },

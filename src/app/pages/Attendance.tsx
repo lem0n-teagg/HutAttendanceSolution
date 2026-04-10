@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Layout } from '../components/Layout';
 import { ClipboardCheck, Check, Calendar } from 'lucide-react';
 import { supabase, Program } from '../../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface EnrolledParticipant {
   id: string;
@@ -14,6 +15,7 @@ interface EnrolledParticipant {
 
 export default function Attendance() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedProgram, setSelectedProgram] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
@@ -56,17 +58,53 @@ export default function Attendance() {
 
   const fetchPrograms = async () => {
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('*')
-        .order('name', { ascending: true });
+      let programsData: Program[] = [];
 
-      if (error) throw error;
-      setPrograms(data || []);
+      // For staff role, only fetch programs they are assigned to
+      if (user?.role === 'staff') {
+        // Get the current user's ID from Supabase
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // First, get the program IDs this staff member is assigned to
+          const { data: assignments, error: assignError } = await supabase
+            .from('program_staff')
+            .select('program_id')
+            .eq('user_id', authUser.id);
+
+          if (assignError) throw assignError;
+
+          const assignedProgramIds = assignments?.map(a => a.program_id) || [];
+
+          if (assignedProgramIds.length > 0) {
+            // Fetch only the programs this staff is assigned to
+            const { data, error } = await supabase
+              .from('programs')
+              .select('*')
+              .in('id', assignedProgramIds)
+              .order('name', { ascending: true });
+
+            if (error) throw error;
+            programsData = data || [];
+          }
+          // If no assignments, programsData remains empty
+        }
+      } else {
+        // For manager and admin, fetch all programs
+        const { data, error } = await supabase
+          .from('programs')
+          .select('*')
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        programsData = data || [];
+      }
+
+      setPrograms(programsData);
 
       // Filter programs that occur today
       const todayDay = getTodayDayOfWeek();
-      const programsToday = (data || []).filter(program => 
+      const programsToday = programsData.filter(program => 
         program.days && program.days.includes(todayDay)
       );
       setTodaysPrograms(programsToday);

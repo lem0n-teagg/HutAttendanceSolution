@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Menu, X, Home, ClipboardCheck, UserPlus, UserCheck, Search, BarChart3, GraduationCap, User, Calendar, FileText } from 'lucide-react';
+import { LogOut, Menu, X, Home, ClipboardCheck, UserPlus, UserCheck, Search, BarChart3, GraduationCap, User, Calendar, FileText, FolderOpen } from 'lucide-react';
 import logo from 'figma:asset/c717e59cf8f32fe25477e30d5de63135f3057cc8.png';
 
 interface LayoutProps {
@@ -42,10 +42,11 @@ export function Layout({ children, title, showSidebar = true }: LayoutProps) {
   const staffMenuItems = [
     { path: 'home', icon: Home, label: 'Home', color: 'gray', action: 'home' },
     { path: '/attendance', icon: ClipboardCheck, label: 'Mark Attendance', color: 'blue' },
-    { path: '/add-participant', icon: UserPlus, label: 'Add Participant', color: 'green', staffOnly: true },
-    { path: '/search?action=add-to-program', icon: UserCheck, label: 'Add to Program', color: 'purple', staffOnly: true },
-    { path: '/search', icon: Search, label: 'Find Participant', color: 'orange', staffOnly: true },
-    { path: '/reports', icon: BarChart3, label: 'View Reports', color: 'teal', staffOnly: true },
+    { path: '/add-participant', icon: UserPlus, label: 'Register Participant', color: 'green', managerOnly: true },
+    { path: '/search?action=add-to-program', icon: UserCheck, label: 'Add to Program', color: 'purple', managerOnly: true },
+    { path: '/search', icon: Search, label: 'Find Participant', color: 'orange', adminOnly: true },
+    { path: '/programs', icon: FolderOpen, label: 'View Programs', color: 'gray', adminOnly: true },
+    { path: '/reports', icon: BarChart3, label: 'View Reports', color: 'teal', adminOnly: true },
     { path: '/training', icon: GraduationCap, label: 'Staff Training', color: 'indigo' },
   ];
 
@@ -62,11 +63,17 @@ export function Layout({ children, title, showSidebar = true }: LayoutProps) {
       return participantMenuItems;
     }
     
-    // For staff/volunteer, filter based on role
-    if (user?.role === 'volunteer') {
-      return staffMenuItems.filter(item => !item.staffOnly);
+    // For staff - only Mark Attendance and Staff Training
+    if (user?.role === 'staff') {
+      return staffMenuItems.filter(item => !item.managerOnly && !item.adminOnly);
     }
     
+    // For manager - Staff + Register Participant + Add to Program
+    if (user?.role === 'manager') {
+      return staffMenuItems.filter(item => !item.adminOnly);
+    }
+    
+    // For admin - full access
     return staffMenuItems;
   };
 

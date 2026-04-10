@@ -304,16 +304,7 @@ export default function SearchParticipant() {
         {/* Add to Program Section */}
         {isAddToProgramMode && selectedParticipant && (
           <div className="bg-purple-50 border-4 border-purple-300 rounded-2xl p-8 mb-8 shadow-lg">
-            <div className="flex items-center justify-between mb-5">
-              <h4 className="text-2xl font-bold text-gray-900">Select Program</h4>
-              <button
-                onClick={() => setShowAddProgramModal(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl text-lg font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <Plus size={20} />
-                Add New Program
-              </button>
-            </div>
+            <h4 className="text-2xl font-bold text-gray-900 mb-5">Select Program</h4>
             <div className="flex flex-col sm:flex-row gap-5">
               <select
                 value={selectedProgram}
