@@ -7,7 +7,7 @@ interface PendingUser {
   id: string;
   email: string;
   full_name: string;
-  role: 'staff' | 'volunteer';
+  role: 'staff' | 'manager' | 'admin';
   created_at: string;
   approved: boolean;
 }
@@ -187,13 +187,15 @@ export default function Approvals() {
                         <div className="flex items-center gap-3">
                           <span
                             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-semibold ${
-                              user.role === 'staff'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-blue-100 text-blue-800'
+                              user.role === 'admin'
+                                ? 'bg-red-100 text-red-800'
+                                : user.role === 'manager'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-purple-100 text-purple-800'
                             }`}
                           >
                             <User size={16} />
-                            {user.role === 'staff' ? 'Staff' : 'Volunteer'}
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                           </span>
                           <span className="flex items-center gap-2 text-gray-500 text-base">
                             <Clock size={16} />
@@ -206,15 +208,20 @@ export default function Approvals() {
                     {/* Role Description */}
                     <div className="bg-gray-50 rounded-xl p-4 mt-4">
                       <p className="text-base text-gray-700">
-                        {user.role === 'staff' ? (
+                        {user.role === 'admin' ? (
                           <>
-                            <strong>Staff Access:</strong> Full access to all features including participant
-                            management, reports, and program administration.
+                            <strong>Admin Access:</strong> Full system access including user approvals, 
+                            program management, reports, and all features.
+                          </>
+                        ) : user.role === 'manager' ? (
+                          <>
+                            <strong>Manager Access:</strong> Can register participants, add to programs,
+                            and mark attendance for all programs.
                           </>
                         ) : (
                           <>
-                            <strong>Volunteer Access:</strong> Limited access to mark attendance and view
-                            training materials.
+                            <strong>Staff Access:</strong> Limited access to mark attendance for assigned
+                            programs and view training materials.
                           </>
                         )}
                       </p>

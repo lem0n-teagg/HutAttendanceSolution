@@ -3,7 +3,6 @@ import { useAuth, AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
-import VolunteerDashboard from './pages/VolunteerDashboard';
 import AddParticipant from './pages/AddParticipant';
 import AddParticipantMultiStep from './pages/AddParticipantMultiStep';
 import SearchParticipant from './pages/SearchParticipant';
@@ -64,10 +63,6 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
   
-  if (user?.role === 'volunteer') {
-    return <Navigate to="/volunteer-dashboard" replace />;
-  }
-  
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -87,9 +82,6 @@ function LoginRoute() {
   }
   
   if (isAuthenticated) {
-    if (user?.role === 'volunteer') {
-      return <Navigate to="/volunteer-dashboard" replace />;
-    }
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -113,14 +105,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Dashboard />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/volunteer-dashboard',
-        element: (
-          <ProtectedRoute>
-            <VolunteerDashboard />
           </ProtectedRoute>
         ),
       },

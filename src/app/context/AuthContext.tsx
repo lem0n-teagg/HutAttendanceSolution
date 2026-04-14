@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, Profile } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured, Profile, UserRole, StaffType } from '../../lib/supabase';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: { name: string; role: 'staff' | 'volunteer'; id: string; email: string } | null;
+  user: { name: string; role: UserRole; staffType?: StaffType; id: string; email: string } | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   loading: boolean;
@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<{ name: string; role: 'staff' | 'volunteer'; id: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; role: UserRole; staffType?: StaffType; id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Check if user is already logged in on mount
@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: profile.id,
             name: profile.full_name,
             role: profile.role,
+            staffType: profile.staff_type,
             email: profile.email
           });
         }
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: profile.id,
             name: profile.full_name,
             role: profile.role,
+            staffType: profile.staff_type,
             email: profile.email
           });
           return { success: true };
@@ -131,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 }

@@ -15,11 +15,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const isSupabaseConfigured = isConfigured;
 
 // Database Types
+export type UserRole = 'Program Coordinator' | 'Data Entry' | 'Manager/Administrator';
+export type StaffType = 'Employee' | 'Volunteer';
+
 export interface Profile {
   id: string;
   email: string;
-  role: 'staff' | 'volunteer';
+  role: UserRole;
+  staff_type?: StaffType;
   full_name: string;
+  approved?: boolean;
   created_at?: string;
 }
 
@@ -40,6 +45,9 @@ export interface Participant {
   emergency_contact_name: string;
   emergency_contact_phone: string;
   additional_requirements?: string;
+  identify_aboriginal_tsi?: string;
+  speak_other_language?: string;
+  country_of_birth?: string;
   created_at?: string;
 }
 
@@ -47,6 +55,7 @@ export interface Program {
   id?: string;
   name: string;
   description: string;
+  category?: string;
   days: string[]; // Array of days: ['Monday', 'Tuesday', etc.]
   start_time: string;
   end_time: string;

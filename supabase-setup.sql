@@ -27,25 +27,47 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL,
+  staff_type TEXT,
   full_name TEXT NOT NULL,
   approved BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add staff_type column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'profiles' AND column_name = 'staff_type'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN staff_type TEXT;
+    RAISE NOTICE 'Added staff_type column to profiles';
+  END IF;
+END $$;
+
 -- Migration: Drop old role constraint if it exists and add new one
-DO $$ 
+DO $$
 BEGIN
   -- Drop the existing constraint if it exists
   ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
   RAISE NOTICE 'Dropped old role constraint (if it existed)';
-  
+
   -- Add new CHECK constraint with the three new roles
-  ALTER TABLE profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('staff', 'manager', 'admin'));
-  RAISE NOTICE 'Added new role constraint for staff, manager, admin';
-  
-  -- Update existing volunteer users to staff (migration from old system)
-  UPDATE profiles SET role = 'staff' WHERE role = 'volunteer';
-  RAISE NOTICE 'Migrated volunteer users to staff role';
+  ALTER TABLE profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('Program Coordinator', 'Data Entry', 'Manager/Administrator'));
+  RAISE NOTICE 'Added new role constraint for Program Coordinator, Data Entry, Manager/Administrator';
+
+  -- Drop the existing staff_type constraint if it exists
+  ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_staff_type_check;
+
+  -- Add CHECK constraint for staff_type
+  ALTER TABLE profiles ADD CONSTRAINT profiles_staff_type_check CHECK (staff_type IN ('Employee', 'Volunteer'));
+  RAISE NOTICE 'Added staff_type constraint for Employee, Volunteer';
+
+  -- Update existing users to new role structure (migration from old system)
+  UPDATE profiles SET role = 'Manager/Administrator', staff_type = 'Employee' WHERE role = 'admin';
+  UPDATE profiles SET role = 'Manager/Administrator', staff_type = 'Employee' WHERE role = 'manager';
+  UPDATE profiles SET role = 'Program Coordinator', staff_type = 'Employee' WHERE role = 'staff';
+  RAISE NOTICE 'Migrated existing users to new role structure';
 END $$;
 
 -- Enable Row Level Security for profiles
@@ -312,6 +334,7 @@ CREATE TABLE IF NOT EXISTS programs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
+  category TEXT,
   days TEXT[] NOT NULL DEFAULT '{}', -- Array of days (empty for one-time events)
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
@@ -321,9 +344,17 @@ CREATE TABLE IF NOT EXISTS programs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add recurrence_type column to programs table if it doesn't exist
+-- Add columns to programs table if they don't exist
 DO $$ 
 BEGIN
+  -- Add category column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'programs' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN category TEXT;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'programs' AND column_name = 'recurrence_type'

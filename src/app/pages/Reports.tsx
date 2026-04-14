@@ -1,123 +1,161 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router';
 import { Layout } from '../components/Layout';
-import { BarChart3, Users, Calendar, TrendingUp, Printer, Filter } from 'lucide-react';
+import { ChevronDown, FileText, Download } from 'lucide-react';
 import { supabase, Program, Participant, AttendanceRecord } from '../../lib/supabase';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import logoImage from 'figma:asset/cae61de7ca39293178c81999f6b640ef288b576e.png';
 
-type TimeScale = 'weekly' | 'monthly' | 'annually';
+type TimePeriod = 'weekly' | 'monthly' | 'quarterly' | 'annually' | 'custom';
 
-interface ProgramEnrollment {
-  name: string;
-  count: number;
-  programId?: string;
-}
-
-// SA Council Regions
-const SA_COUNCIL_REGIONS = [
-  'Adelaide City Council',
-  'Adelaide Hills Council',
-  'Alexandrina Council',
-  'Barossa Council',
-  'Barunga West Council',
-  'Berri Barmera Council',
-  'Campbelltown City Council',
-  'Cedar Valley Council',
-  'Charles Sturt City Council',
-  'Clare and Gilbert Valleys Council',
-  'Cleve District Council',
-  'Coober Pedy District Council',
-  'Coorong District Council',
-  'Copper Coast Council',
-  'Elliston District Council',
-  'Flinders Ranges Council',
-  'Franklin Harbour Council',
-  'Gawler Town Council',
-  'Goyder Regional Council',
-  'Grant District Council',
-  'Holdfast Bay City Council',
-  'Kangaroo Island Council',
-  'Karoonda East Murray Council',
-  'Kimba District Council',
-  'Kingston District Council',
-  'Light Regional Council',
-  'Lower Eyre Peninsula Council',
-  'Loxton Waikerie Council',
-  'Mallala District Council',
-  'Marion City Council',
-  'Mid Murray Council',
-  'Mitcham City Council',
-  'Mount Barker District Council',
-  'Mount Gambier City Council',
-  'Mount Remarkable District Council',
-  'Murray Bridge Rural City Council',
-  'Naracoorte Lucindale Council',
-  'Northern Areas Council',
-  'Norwood Payneham and St Peters City Council',
-  'Onkaparinga City Council',
-  'Orroroo Carrieton District Council',
-  'Peterborough District Council',
-  'Playford City Council',
-  'Port Adelaide Enfield City Council',
-  'Port Augusta City Council',
-  'Port Lincoln City Council',
-  'Port Pirie City and Districts Council',
-  'Prospect City Council',
-  'Renmark Paringa Council',
-  'Robe District Council',
-  'Roxby Downs Municipality',
-  'Salisbury City Council',
-  'Southern Mallee District Council',
-  'Streaky Bay District Council',
-  'Tatiara District Council',
-  'Tea Tree Gully City Council',
-  'The Coorong District Council',
-  'Tumby Bay District Council',
-  'Unley City Council',
-  'Victor Harbor City Council',
-  'Wakefield Regional Council',
-  'Walkerville Town Council',
-  'Wattle Range Council',
-  'West Torrens City Council',
-  'Whyalla City Council',
-  'Wudinna District Council',
-  'Yankalilla District Council',
-  'Yorke Peninsula Council'
+// Adelaide Hills townships
+const ADELAIDE_HILLS_TOWNSHIPS = [
+  'Aldgate', 'Ashton', 'Basket Range', 'Birdwood', 'Bridgewater', 'Brukunga',
+  'Carey Gully', 'Charleston', 'Cherryville', 'Crafers', 'Cudlee Creek',
+  'Echunga', 'Forreston', 'Gumeracha', 'Hahndorf', 'Heathfield', 'Ironbank',
+  'Kersbrook', 'Lenswood', 'Littlehampton', 'Lobethal', 'Macclesfield',
+  'Meadows', 'Mount Barker', 'Mount Torrens', 'Mylor', 'Nairne', 'Norton Summit',
+  'Oakbank', 'Paracombe', 'Piccadilly', 'Stirling', 'Strathalbyn', 'Summertown',
+  'Uraidla', 'Verdun', 'Wistow', 'Woodside'
 ];
 
-// Age range options
-const AGE_RANGES = [
-  { label: 'All Ages', value: 'all' },
-  { label: '0-12 (Children)', value: '0-12' },
-  { label: '13-17 (Teens)', value: '13-17' },
-  { label: '18-24 (Young Adults)', value: '18-24' },
-  { label: '25-54 (Adults)', value: '25-54' },
-  { label: '55+ (Seniors)', value: '55+' }
+const PROGRAM_CATEGORIES = [
+  'Healthy Living',
+  'Interest & Social',
+  'Low Income Support',
+  'Young People',
+  'Sustainability'
 ];
+
+const AGE_GROUPS = ['under 18', '18-24', '25-44', '45-64', '65+'];
+const GENDERS = ['Female', 'Male', 'Non-binary', 'Prefer not to say', 'Other'];
+const ATSI_OPTIONS = ['Yes', 'No'];
+const CALD_OPTIONS = ['Yes', 'No'];
+const COUNCILS = ['Adelaide Hills Council', 'Other Council'];
 
 export default function Reports() {
-  const navigate = useNavigate();
-  const [selectedReport, setSelectedReport] = useState<string>('overview');
-  const [timeScale, setTimeScale] = useState<TimeScale>('monthly');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedProgramCategory, setSelectedProgramCategory] = useState<string>('all');
+  const [selectedProgram, setSelectedProgram] = useState<string>('all');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('all');
+  const [selectedGender, setSelectedGender] = useState<string>('all');
+  const [selectedATSI, setSelectedATSI] = useState<string>('all');
+  const [selectedCALD, setSelectedCALD] = useState<string>('all');
+  const [selectedCouncil, setSelectedCouncil] = useState<string>('all');
+  const [selectedTownship, setSelectedTownship] = useState<string>('all');
+  
   const [programs, setPrograms] = useState<Program[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [allProgramEnrollments, setAllProgramEnrollments] = useState<ProgramEnrollment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentProgramEnrollments, setCurrentProgramEnrollments] = useState<ProgramEnrollment[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  
-  // Filter states
-  const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('all');
-  const [selectedAgeRange, setSelectedAgeRange] = useState<string>('all');
-  const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [showReport, setShowReport] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  // Available options based on actual database data
+  const [availableCategories, setAvailableCategories] = useState<Set<string>>(new Set());
+  const [availablePrograms, setAvailablePrograms] = useState<Set<string>>(new Set());
+  const [availableAgeGroups, setAvailableAgeGroups] = useState<Set<string>>(new Set());
+  const [availableGenders, setAvailableGenders] = useState<Set<string>>(new Set());
+  const [availableATSI, setAvailableATSI] = useState<Set<string>>(new Set());
+  const [availableCALD, setAvailableCALD] = useState<Set<string>>(new Set());
+  const [availableCouncils, setAvailableCouncils] = useState<Set<string>>(new Set());
+  const [availableTownships, setAvailableTownships] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    const today = new Date();
+    const end = today.toISOString().split('T')[0];
+    setEndDate(end);
+    calculateStartDate(end, timePeriod);
     fetchData();
   }, []);
 
-  // Calculate age from date of birth
-  const calculateAge = (dateOfBirth: string | null): number => {
-    if (!dateOfBirth) return 0;
+  useEffect(() => {
+    if (endDate) {
+      calculateStartDate(endDate, timePeriod);
+    }
+  }, [timePeriod, endDate]);
+
+  const calculateStartDate = (end: string, period: TimePeriod) => {
+    if (period === 'custom') return;
+    
+    const endDateObj = new Date(end);
+    let startDateObj = new Date(endDateObj);
+    
+    switch (period) {
+      case 'weekly':
+        startDateObj.setDate(endDateObj.getDate() - 7);
+        break;
+      case 'monthly':
+        startDateObj.setMonth(endDateObj.getMonth() - 1);
+        break;
+      case 'quarterly':
+        startDateObj.setMonth(endDateObj.getMonth() - 3);
+        break;
+      case 'annually':
+        startDateObj.setFullYear(endDateObj.getFullYear() - 1);
+        break;
+    }
+    
+    setStartDate(startDateObj.toISOString().split('T')[0]);
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch programs
+      const { data: programsData } = await supabase
+        .from('programs')
+        .select('*');
+      setPrograms(programsData || []);
+      
+      // Extract available programs (assume all programs exist for now)
+      const programNames = new Set((programsData || []).map(p => p.name));
+      setAvailablePrograms(programNames);
+      
+      // Fetch participants
+      const { data: participantsData } = await supabase
+        .from('participants')
+        .select('*');
+      setParticipants(participantsData || []);
+      
+      // Extract available values from participants
+      if (participantsData) {
+        const genders = new Set(participantsData.map(p => p.gender).filter(Boolean));
+        setAvailableGenders(genders);
+        
+        const councils = new Set(participantsData.map(p => p.council_region).filter(Boolean));
+        setAvailableCouncils(councils);
+        
+        const townships = new Set(participantsData.map(p => p.township).filter(Boolean));
+        setAvailableTownships(townships);
+        
+        // Calculate age groups
+        const ageGroups = new Set<string>();
+        participantsData.forEach(p => {
+          if (p.date_of_birth) {
+            const age = calculateAge(p.date_of_birth);
+            const ageGroup = getAgeGroup(age);
+            if (ageGroup) ageGroups.add(ageGroup);
+          }
+        });
+        setAvailableAgeGroups(ageGroups);
+      }
+      
+      // Fetch attendance records
+      const { data: attendanceData } = await supabase
+        .from('attendance_records')
+        .select('*');
+      setAttendanceRecords(attendanceData || []);
+      
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateAge = (dateOfBirth: string): number => {
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -128,713 +166,667 @@ export default function Reports() {
     return age;
   };
 
-  // Check if age is in range
-  const isInAgeRange = (age: number, range: string): boolean => {
-    if (range === 'all') return true;
-    if (range === '0-12') return age >= 0 && age <= 12;
-    if (range === '13-17') return age >= 13 && age <= 17;
-    if (range === '18-24') return age >= 18 && age <= 24;
-    if (range === '25-54') return age >= 25 && age <= 54;
-    if (range === '55+') return age >= 55;
-    return true;
+  const getAgeGroup = (age: number): string => {
+    if (age < 18) return 'under 18';
+    if (age >= 18 && age <= 24) return '18-24';
+    if (age >= 25 && age <= 44) return '25-44';
+    if (age >= 45 && age <= 64) return '45-64';
+    return '65+';
   };
 
-  // Filter participants based on selected filters
+  // Filter participants based on selected criteria
   const filteredParticipants = useMemo(() => {
     return participants.filter(participant => {
-      // Age filter
-      const age = calculateAge(participant.date_of_birth);
-      if (!isInAgeRange(age, selectedAgeRange)) return false;
-
-      // Region filter
-      if (selectedRegion !== 'all' && participant.council_region !== selectedRegion) return false;
-
+      // Age group filter
+      if (selectedAgeGroup !== 'all' && participant.date_of_birth) {
+        const age = calculateAge(participant.date_of_birth);
+        const ageGroup = getAgeGroup(age);
+        if (ageGroup !== selectedAgeGroup) return false;
+      }
+      
+      // Gender filter
+      if (selectedGender !== 'all' && participant.gender !== selectedGender) return false;
+      
+      // ATSI filter
+      if (selectedATSI !== 'all') {
+        const atsiStatus = participant.identify_aboriginal_tsi === 'Yes' || 
+                          participant.identify_aboriginal_tsi === 'Aboriginal' || 
+                          participant.identify_aboriginal_tsi === 'Torres Strait Islander' ||
+                          participant.identify_aboriginal_tsi === 'Both' ? 'Yes' : 'No';
+        if (atsiStatus !== selectedATSI) return false;
+      }
+      
+      // CALD filter (determined by speaking other language or country of birth)
+      if (selectedCALD !== 'all') {
+        const isCALD = participant.speak_other_language === 'Yes' || 
+                      (participant.country_of_birth && 
+                       participant.country_of_birth !== 'Australia' && 
+                       participant.country_of_birth !== '');
+        const caldStatus = isCALD ? 'Yes' : 'No';
+        if (caldStatus !== selectedCALD) return false;
+      }
+      
+      // Council filter
+      if (selectedCouncil !== 'all' && participant.council_region !== selectedCouncil) return false;
+      
+      // Township filter
+      if (selectedTownship !== 'all' && participant.township !== selectedTownship) return false;
+      
       return true;
     });
-  }, [participants, selectedAgeRange, selectedRegion]);
+  }, [participants, selectedAgeGroup, selectedGender, selectedATSI, selectedCALD, selectedCouncil, selectedTownship]);
 
-  // Get participant IDs for program filtering
-  const filteredParticipantIds = useMemo(() => {
-    return new Set(filteredParticipants.map(p => p.id));
+  // Filter attendance records based on filters
+  const filteredAttendance = useMemo(() => {
+    const participantIds = new Set(filteredParticipants.map(p => p.id));
+    
+    return attendanceRecords.filter(record => {
+      // Date range filter
+      if (startDate && record.date < startDate) return false;
+      if (endDate && record.date > endDate) return false;
+      
+      // Participant filter
+      if (!participantIds.has(record.participant_id)) return false;
+      
+      // Program filter
+      if (selectedProgram !== 'all' && record.program_id !== selectedProgram) return false;
+      
+      return true;
+    });
+  }, [attendanceRecords, filteredParticipants, startDate, endDate, selectedProgram]);
+
+  // Calculate report metrics
+  const reportMetrics = useMemo(() => {
+    const uniqueParticipants = new Set(filteredAttendance.map(r => r.participant_id)).size;
+    const totalAttendances = filteredAttendance.filter(r => r.status === 'present').length;
+    const totalRecords = filteredAttendance.length;
+    const attendanceRate = totalRecords > 0 ? ((totalAttendances / totalRecords) * 100).toFixed(1) : '0.0';
+    
+    return { uniqueParticipants, totalAttendances, totalRecords, attendanceRate };
+  }, [filteredAttendance]);
+
+  // Age distribution data
+  const ageDistributionData = useMemo(() => {
+    const ageCounts: Record<string, number> = {};
+    AGE_GROUPS.forEach(group => ageCounts[group] = 0);
+    
+    filteredParticipants.forEach(p => {
+      if (p.date_of_birth) {
+        const age = calculateAge(p.date_of_birth);
+        const ageGroup = getAgeGroup(age);
+        ageCounts[ageGroup] = (ageCounts[ageGroup] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(ageCounts)
+      .filter(([_, count]) => count > 0)
+      .map(([name, value]) => ({ name, value }));
   }, [filteredParticipants]);
 
-  // Update program enrollments when filters change
-  useEffect(() => {
-    const updateProgramEnrollments = async () => {
-      if (selectedProgramFilter === 'all') {
-        // Filter enrollments based on filtered participants
-        const filteredEnrollments = await Promise.all(
-          allProgramEnrollments.map(async (enrollment) => {
-            if (!enrollment.programId) return enrollment;
-            
-            // Get participants for this program
-            const { data } = await supabase
-              .from('program_enrollments')
-              .select('participant_id')
-              .eq('program_id', enrollment.programId);
-            
-            const programParticipantIds = data?.map(e => e.participant_id) || [];
-            
-            // Count how many are in our filtered set
-            const filteredCount = programParticipantIds.filter(id => 
-              filteredParticipantIds.has(id)
-            ).length;
-            
-            return { ...enrollment, count: filteredCount };
-          })
-        );
-        setCurrentProgramEnrollments(filteredEnrollments);
-      } else {
-        // Single program selected
-        const program = allProgramEnrollments.find(p => p.programId === selectedProgramFilter);
-        if (!program) {
-          setCurrentProgramEnrollments([]);
-          return;
-        }
-        
-        const { data } = await supabase
-          .from('program_enrollments')
-          .select('participant_id')
-          .eq('program_id', selectedProgramFilter);
-        
-        const programParticipantIds = data?.map(e => e.participant_id) || [];
-        const filteredCount = programParticipantIds.filter(id => 
-          filteredParticipantIds.has(id)
-        ).length;
-        
-        setCurrentProgramEnrollments([{ ...program, count: filteredCount }]);
+  // Gender distribution data
+  const genderDistributionData = useMemo(() => {
+    const genderCounts: Record<string, number> = {};
+    
+    filteredParticipants.forEach(p => {
+      if (p.gender) {
+        genderCounts[p.gender] = (genderCounts[p.gender] || 0) + 1;
       }
-    };
-
-    if (allProgramEnrollments.length > 0) {
-      updateProgramEnrollments();
-    }
-  }, [allProgramEnrollments, selectedProgramFilter, filteredParticipantIds]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Fetch programs
-      const { data: programsData, error: programsError } = await supabase
-        .from('programs')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (programsError) throw programsError;
-      setPrograms(programsData || []);
-
-      // Fetch participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('participants')
-        .select('*');
-
-      if (participantsError) throw participantsError;
-      setParticipants(participantsData || []);
-
-      // Fetch enrollment counts for each program
-      if (programsData && programsData.length > 0) {
-        const enrollmentPromises = programsData.map(async (program) => {
-          const { count, error } = await supabase
-            .from('program_enrollments')
-            .select('*', { count: 'exact', head: true })
-            .eq('program_id', program.id);
-
-          if (error) console.error('Error fetching enrollment count:', error);
-          return { name: program.name, count: count || 0, programId: program.id };
-        });
-
-        const enrollments = await Promise.all(enrollmentPromises);
-        setAllProgramEnrollments(enrollments);
-      }
-
-      // Fetch attendance records with error handling
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance_records')
-        .select('*');
-
-      if (attendanceError) {
-        // Log the error but don't fail - attendance records might not exist yet
-        console.error('Error fetching attendance records:', attendanceError);
-        setAttendanceRecords([]);
-      } else {
-        setAttendanceRecords(attendanceData || []);
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const totalParticipants = filteredParticipants.length;
-  const totalPrograms = programs.length;
-
-  // Get real attendance data based on time scale and filters
-  const getAttendanceData = useMemo(() => {
-    // Filter attendance records based on selected filters
-    const filteredRecords = attendanceRecords.filter(record => {
-      // Filter by program
-      if (selectedProgramFilter !== 'all' && record.program_id !== selectedProgramFilter) {
-        return false;
-      }
-
-      // Filter by participant (age and region)
-      if (!filteredParticipantIds.has(record.participant_id)) {
-        return false;
-      }
-
-      return true;
     });
+    
+    return Object.entries(genderCounts)
+      .map(([name, value]) => ({ name, value }));
+  }, [filteredParticipants]);
 
-    const today = new Date();
-    const programCapacities = programs.reduce((acc, prog) => {
-      acc[prog.id!] = prog.capacity || 30; // Default capacity of 30 if not specified
-      return acc;
-    }, {} as Record<string, number>);
-
-    if (timeScale === 'weekly') {
-      // Last 7 days
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const weekData = Array(7).fill(null).map((_, index) => {
-        const date = new Date(today);
-        date.setDate(today.getDate() - (6 - index));
-        const dayName = days[date.getDay()];
-        const dateStr = date.toISOString().split('T')[0];
-        
-        const dayRecords = filteredRecords.filter(r => r.date === dateStr && r.status === 'present');
-        const attendance = dayRecords.length;
-        
-        // Calculate capacity based on programs that had sessions that day
-        const programIds = new Set(dayRecords.map(r => r.program_id));
-        const capacity = Array.from(programIds).reduce((sum, pid) => sum + (programCapacities[pid] || 30), 0) || 60;
-        
-        return { period: dayName, attendance, capacity, id: `week-${index}` };
-      });
-      return weekData;
-    } else if (timeScale === 'monthly') {
-      // Last 4 weeks
-      const weekData = Array(4).fill(null).map((_, weekIndex) => {
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - (3 - weekIndex) * 7 - today.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        
-        const weekRecords = filteredRecords.filter(r => {
-          const recordDate = new Date(r.date);
-          return recordDate >= weekStart && recordDate <= weekEnd && r.status === 'present';
-        });
-        
-        const attendance = weekRecords.length;
-        const programIds = new Set(weekRecords.map(r => r.program_id));
-        const avgDailyCapacity = Array.from(programIds).reduce((sum, pid) => sum + (programCapacities[pid] || 30), 0) || 60;
-        const capacity = avgDailyCapacity * 5; // Assume 5 days per week
-        
-        return { period: `Week ${weekIndex + 1}`, attendance, capacity, id: `month-${weekIndex}` };
-      });
-      return weekData;
-    } else {
-      // Last 12 months
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthData = Array(12).fill(null).map((_, monthIndex) => {
-        const month = (today.getMonth() - 11 + monthIndex + 12) % 12;
-        const year = today.getFullYear() - (today.getMonth() - 11 + monthIndex < 0 ? 1 : 0);
-        
-        const monthRecords = filteredRecords.filter(r => {
-          const recordDate = new Date(r.date);
-          return recordDate.getMonth() === month && recordDate.getFullYear() === year && r.status === 'present';
-        });
-        
-        const attendance = monthRecords.length;
-        const programIds = new Set(monthRecords.map(r => r.program_id));
-        const avgDailyCapacity = Array.from(programIds).reduce((sum, pid) => sum + (programCapacities[pid] || 30), 0) || 60;
-        const capacity = avgDailyCapacity * 20; // Assume ~20 days per month
-        
-        return { period: months[month], attendance, capacity, id: `year-${monthIndex}` };
-      });
-      return monthData;
-    }
-  }, [attendanceRecords, timeScale, selectedProgramFilter, filteredParticipantIds, programs]);
-
-  // Program participation data for pie chart
-  const programPieData = useMemo(() => {
-    return currentProgramEnrollments.map((p, index) => ({
-      name: p.name,
-      value: p.count,
-      id: p.programId || `program-${index}` // Add unique id
+  // Program table data
+  const programTableData = useMemo(() => {
+    const programStats: Record<string, {
+      name: string;
+      category: string;
+      uniqueParticipants: Set<string>;
+      attendances: number;
+      totalRecords: number;
+    }> = {};
+    
+    filteredAttendance.forEach(record => {
+      const program = programs.find(p => p.id === record.program_id);
+      if (!program) return;
+      
+      if (!programStats[program.id!]) {
+        programStats[program.id!] = {
+          name: program.name,
+          category: 'General', // Default category since not in schema
+          uniqueParticipants: new Set(),
+          attendances: 0,
+          totalRecords: 0
+        };
+      }
+      
+      programStats[program.id!].uniqueParticipants.add(record.participant_id);
+      programStats[program.id!].totalRecords++;
+      if (record.status === 'present') {
+        programStats[program.id!].attendances++;
+      }
+    });
+    
+    return Object.values(programStats).map(stat => ({
+      name: stat.name,
+      category: stat.category,
+      uniqueParticipants: stat.uniqueParticipants.size,
+      attendances: stat.attendances,
+      attendanceRate: stat.totalRecords > 0 
+        ? ((stat.attendances / stat.totalRecords) * 100).toFixed(1) + '%'
+        : '0.0%'
     }));
-  }, [currentProgramEnrollments]);
+  }, [filteredAttendance, programs]);
 
-  const COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#14B8A6', '#EC4899'];
-
-  const handlePrintReport = () => {
-    window.print();
+  const handlePreviewReport = () => {
+    setShowReport(true);
   };
+
+  const handleExportPDF = () => {
+    window.print();
+    setExportMenuOpen(false);
+  };
+
+  const handleExportCSV = () => {
+    // Generate CSV from program table data
+    const headers = ['Program', 'Category', 'Unique Participants', 'Attendances', 'Attendance Rate'];
+    const rows = programTableData.map(row => [
+      row.name,
+      row.category,
+      row.uniqueParticipants.toString(),
+      row.attendances.toString(),
+      row.attendanceRate
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${startDate}-to-${endDate}.csv`;
+    a.click();
+    setExportMenuOpen(false);
+  };
+
+  const getReportSubtitle = () => {
+    const periodText = timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1);
+    const categoryText = selectedProgramCategory === 'all' ? 'All program categories' : selectedProgramCategory;
+    const programText = selectedProgram === 'all' ? 'All programs' : programs.find(p => p.id === selectedProgram)?.name || 'All programs';
+    
+    return `${periodText} Report – ${categoryText} – ${programText}`;
+  };
+
+  const COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#14B8A6'];
 
   return (
-    <Layout title="Reports & Analytics">
-      <div className="max-w-6xl mx-auto">
-        {/* Filters Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border-4 border-purple-200 print:hidden">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-purple-600 rounded-lg">
-              <Filter size={32} className="text-white" />
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-gray-900">Filter Reports</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Program Filter */}
-            <div>
-              <label htmlFor="program-filter" className="block text-lg font-bold text-gray-700 mb-3">
-                Program
-              </label>
-              <select
-                id="program-filter"
-                value={selectedProgramFilter}
-                onChange={(e) => setSelectedProgramFilter(e.target.value)}
-                className="w-full px-4 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500 focus:border-purple-500 outline-none font-semibold"
-              >
-                <option value="all">All Programs</option>
-                {programs.map(program => (
-                  <option key={program.id} value={program.id}>
-                    {program.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Age Range Filter */}
-            <div>
-              <label htmlFor="age-filter" className="block text-lg font-bold text-gray-700 mb-3">
-                Age Range
-              </label>
-              <select
-                id="age-filter"
-                value={selectedAgeRange}
-                onChange={(e) => setSelectedAgeRange(e.target.value)}
-                className="w-full px-4 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500 focus:border-purple-500 outline-none font-semibold"
-              >
-                {AGE_RANGES.map(range => (
-                  <option key={range.value} value={range.value}>
-                    {range.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Council Region Filter */}
-            <div>
-              <label htmlFor="region-filter" className="block text-lg font-bold text-gray-700 mb-3">
-                Council Region
-              </label>
-              <select
-                id="region-filter"
-                value={selectedRegion}
-                onChange={(e) => setSelectedRegion(e.target.value)}
-                className="w-full px-4 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-500 focus:border-purple-500 outline-none font-semibold"
-              >
-                <option value="all">All Regions</option>
-                {SA_COUNCIL_REGIONS.map(region => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Active Filters Display */}
-          {(selectedProgramFilter !== 'all' || selectedAgeRange !== 'all' || selectedRegion !== 'all') && (
-            <div className="mt-6 p-4 bg-purple-50 rounded-xl border-2 border-purple-200">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-base font-bold text-gray-900">Active Filters:</span>
-                {selectedProgramFilter !== 'all' && (
-                  <span className="px-4 py-2 bg-purple-600 text-white rounded-full text-base font-semibold">
-                    Program: {programs.find(p => p.id === selectedProgramFilter)?.name}
-                  </span>
-                )}
-                {selectedAgeRange !== 'all' && (
-                  <span className="px-4 py-2 bg-purple-600 text-white rounded-full text-base font-semibold">
-                    Age: {AGE_RANGES.find(r => r.value === selectedAgeRange)?.label}
-                  </span>
-                )}
-                {selectedRegion !== 'all' && (
-                  <span className="px-4 py-2 bg-purple-600 text-white rounded-full text-base font-semibold">
-                    Region: {selectedRegion}
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    setSelectedProgramFilter('all');
-                    setSelectedAgeRange('all');
-                    setSelectedRegion('all');
-                  }}
-                  className="ml-auto px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-base font-semibold transition-colors"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-          )}
+    <Layout>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900">View Reports</h1>
         </div>
 
-        {/* Time Scale & Print Button */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border-4 border-teal-200 print:hidden">
-          <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
-            {/* Time Scale Selection */}
-            <div>
-              <label className="block text-lg font-bold text-gray-900 mb-3">Time Scale</label>
-              <div className="flex gap-3">
+        {/* Report Filters Section */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-4 border-purple-200 print:hidden">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Report Filters</h2>
+          
+          {/* Time Period Controls */}
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-3">
+              {(['weekly', 'monthly', 'quarterly', 'annually', 'custom'] as TimePeriod[]).map(period => (
                 <button
-                  onClick={() => setTimeScale('weekly')}
-                  className={`px-6 py-3 rounded-xl text-lg font-bold transition-all transform hover:scale-105 ${
-                    timeScale === 'weekly'
-                      ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg'
+                  key={period}
+                  onClick={() => setTimePeriod(period)}
+                  className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                    timePeriod === period
+                      ? 'bg-teal-500 text-white'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  Weekly
+                  {period === 'custom' ? 'Custom Range' : period.charAt(0).toUpperCase() + period.slice(1)}
                 </button>
-                <button
-                  onClick={() => setTimeScale('monthly')}
-                  className={`px-6 py-3 rounded-xl text-lg font-bold transition-all transform hover:scale-105 ${
-                    timeScale === 'monthly'
-                      ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+              ))}
+            </div>
+          </div>
+
+          {/* Filters Form */}
+          <div className="space-y-6">
+            {/* Line 1 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div>
+                <label htmlFor="start-date" className="block text-base font-bold text-gray-700 mb-2">
+                  Start date
+                </label>
+                <input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  disabled={timePeriod !== 'custom'}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="end-date" className="block text-base font-bold text-gray-700 mb-2">
+                  End date
+                </label>
+                <input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="program-category" className="block text-base font-bold text-gray-700 mb-2">
+                  Program category
+                </label>
+                <select
+                  id="program-category"
+                  value={selectedProgramCategory}
+                  onChange={(e) => setSelectedProgramCategory(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setTimeScale('annually')}
-                  className={`px-6 py-3 rounded-xl text-lg font-bold transition-all transform hover:scale-105 ${
-                    timeScale === 'annually'
-                      ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  <option value="all">All program categories</option>
+                  {PROGRAM_CATEGORIES.map(category => {
+                    const isAvailable = availableCategories.has(category);
+                    return (
+                      <option 
+                        key={category} 
+                        value={category}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {category}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="program" className="block text-base font-bold text-gray-700 mb-2">
+                  Program
+                </label>
+                <select
+                  id="program"
+                  value={selectedProgram}
+                  onChange={(e) => setSelectedProgram(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
-                  Annually
-                </button>
+                  <option value="all">All programs</option>
+                  {programs.map(program => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* Print Button */}
-            <div>
+            {/* Line 2 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div>
+                <label htmlFor="age-group" className="block text-base font-bold text-gray-700 mb-2">
+                  Age group
+                </label>
+                <select
+                  id="age-group"
+                  value={selectedAgeGroup}
+                  onChange={(e) => setSelectedAgeGroup(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All age groups</option>
+                  {AGE_GROUPS.map(group => {
+                    const isAvailable = availableAgeGroups.has(group);
+                    return (
+                      <option 
+                        key={group} 
+                        value={group}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {group}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="gender" className="block text-base font-bold text-gray-700 mb-2">
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  value={selectedGender}
+                  onChange={(e) => setSelectedGender(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All genders</option>
+                  {GENDERS.map(gender => {
+                    const isAvailable = availableGenders.has(gender);
+                    return (
+                      <option 
+                        key={gender} 
+                        value={gender}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {gender}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="atsi-status" className="block text-base font-bold text-gray-700 mb-2">
+                  ATSI status
+                </label>
+                <select
+                  id="atsi-status"
+                  value={selectedATSI}
+                  onChange={(e) => setSelectedATSI(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All ATSI statuses</option>
+                  {ATSI_OPTIONS.map(option => {
+                    const isAvailable = availableATSI.has(option);
+                    return (
+                      <option 
+                        key={option} 
+                        value={option}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {option}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="cald-background" className="block text-base font-bold text-gray-700 mb-2">
+                  CALD background
+                </label>
+                <select
+                  id="cald-background"
+                  value={selectedCALD}
+                  onChange={(e) => setSelectedCALD(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All CALD backgrounds</option>
+                  {CALD_OPTIONS.map(option => {
+                    const isAvailable = availableCALD.has(option);
+                    return (
+                      <option 
+                        key={option} 
+                        value={option}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {option}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Line 3 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="council" className="block text-base font-bold text-gray-700 mb-2">
+                  Council
+                </label>
+                <select
+                  id="council"
+                  value={selectedCouncil}
+                  onChange={(e) => setSelectedCouncil(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All councils</option>
+                  {COUNCILS.map(council => {
+                    const isAvailable = availableCouncils.has(council);
+                    return (
+                      <option 
+                        key={council} 
+                        value={council}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {council}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="township" className="block text-base font-bold text-gray-700 mb-2">
+                  Township
+                </label>
+                <select
+                  id="township"
+                  value={selectedTownship}
+                  onChange={(e) => setSelectedTownship(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                >
+                  <option value="all">All townships</option>
+                  {ADELAIDE_HILLS_TOWNSHIPS.map(township => {
+                    const isAvailable = availableTownships.has(township);
+                    return (
+                      <option 
+                        key={township} 
+                        value={township}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-gray-400' : ''}
+                      >
+                        {township}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 mt-8">
+            <button
+              onClick={handlePreviewReport}
+              className="px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-bold text-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <FileText size={20} />
+              Preview Report
+            </button>
+            
+            <div className="relative">
               <button
-                onClick={handlePrintReport}
-                className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl text-lg font-bold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                className="px-8 py-4 bg-teal-500 text-white rounded-lg font-bold text-lg hover:bg-teal-600 transition-colors flex items-center gap-2"
               >
-                <Printer size={24} />
-                <span>Print Report</span>
+                <Download size={20} />
+                Export Report
+                <ChevronDown size={20} />
               </button>
+              
+              {exportMenuOpen && (
+                <div className="absolute top-full mt-2 left-0 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-10 min-w-[200px]">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full px-6 py-3 text-left hover:bg-gray-50 font-semibold border-b border-gray-200"
+                  >
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="w-full px-6 py-3 text-left hover:bg-gray-50 font-semibold"
+                  >
+                    Export as CSV
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Report Type Selection */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-4 border-teal-200 print:border-2">
-          <div className="flex items-center gap-4 mb-6 bg-teal-50 p-5 rounded-xl print:bg-white">
-            <div className="p-3 bg-teal-600 rounded-lg print:hidden">
-              <BarChart3 size={32} className="text-white" />
+        {/* Report Preview */}
+        {showReport && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 border-4 border-gray-200 print:border-0 print:shadow-none">
+            {/* Report Header */}
+            <div className="flex items-start justify-between mb-8 pb-6 border-b-2 border-gray-200">
+              <div className="flex items-start gap-4">
+                <img src={logoImage} alt="The Hut Logo" className="h-16 object-contain" />
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-1">The Hut Community Centre</h2>
+                  <p className="text-lg text-gray-600">{getReportSubtitle()}</p>
+                </div>
+              </div>
+              <div className="text-right text-sm text-gray-600">
+                <p><strong>From:</strong> {startDate}</p>
+                <p><strong>To:</strong> {endDate}</p>
+                <p><strong>Generated:</strong> {new Date().toLocaleDateString('en-AU', { 
+                  year: 'numeric', 
+                  month: '2-digit', 
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</p>
+              </div>
             </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-gray-900">Select Report Type</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:hidden">
-            <button
-              onClick={() => setSelectedReport('overview')}
-              className={`p-6 rounded-xl border-4 transition-all transform hover:scale-105 ${
-                selectedReport === 'overview'
-                  ? 'border-teal-600 bg-teal-50 shadow-lg'
-                  : 'border-gray-300 hover:border-gray-400 bg-white'
-              }`}
-            >
-              <div className="text-xl font-bold text-gray-900 mb-2">Overview</div>
-              <div className="text-base text-gray-600 font-semibold">General statistics</div>
-            </button>
 
-            <button
-              onClick={() => setSelectedReport('programs')}
-              className={`p-6 rounded-xl border-4 transition-all transform hover:scale-105 ${
-                selectedReport === 'programs'
-                  ? 'border-teal-600 bg-teal-50 shadow-lg'
-                  : 'border-gray-300 hover:border-gray-400 bg-white'
-              }`}
-            >
-              <div className="text-xl font-bold text-gray-900 mb-2">Programs</div>
-              <div className="text-base text-gray-600 font-semibold">Program enrollment</div>
-            </button>
-
-            <button
-              onClick={() => setSelectedReport('attendance')}
-              className={`p-6 rounded-xl border-4 transition-all transform hover:scale-105 ${
-                selectedReport === 'attendance'
-                  ? 'border-teal-600 bg-teal-50 shadow-lg'
-                  : 'border-gray-300 hover:border-gray-400 bg-white'
-              }`}
-            >
-              <div className="text-xl font-bold text-gray-900 mb-2">Attendance</div>
-              <div className="text-base text-gray-600 font-semibold">Attendance trends</div>
-            </button>
-          </div>
-        </div>
-
-        {/* Overview Report */}
-        {selectedReport === 'overview' && (
-          <div className="space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-transform print:transform-none">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-4 bg-white/20 rounded-xl">
-                    <Users size={40} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold mb-1">Total Participants</div>
-                    <div className="text-5xl font-bold">{totalParticipants}</div>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+              <div className="bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
+                <div className="text-sm font-bold text-blue-800 mb-2">Unique Participants</div>
+                <div className="text-4xl font-bold text-blue-900">{reportMetrics.uniqueParticipants}</div>
               </div>
-
-              <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-transform print:transform-none">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-4 bg-white/20 rounded-xl">
-                    <Calendar size={40} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold mb-1">Active Programs</div>
-                    <div className="text-5xl font-bold">{totalPrograms}</div>
-                  </div>
-                </div>
+              <div className="bg-green-50 rounded-xl p-6 border-2 border-green-200">
+                <div className="text-sm font-bold text-green-800 mb-2">Total Attendances</div>
+                <div className="text-4xl font-bold text-green-900">{reportMetrics.totalAttendances}</div>
               </div>
-
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-transform print:transform-none">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-4 bg-white/20 rounded-xl">
-                    <TrendingUp size={40} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold mb-1">Avg. Enrollment</div>
-                    <div className="text-5xl font-bold">
-                      {totalPrograms > 0 ? Math.round((allProgramEnrollments.reduce((sum, p) => sum + p.count, 0) / totalPrograms) * 10) / 10 : 0}
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-purple-50 rounded-xl p-6 border-2 border-purple-200">
+                <div className="text-sm font-bold text-purple-800 mb-2">Total Records</div>
+                <div className="text-4xl font-bold text-purple-900">{reportMetrics.totalRecords}</div>
+              </div>
+              <div className="bg-teal-50 rounded-xl p-6 border-2 border-teal-200">
+                <div className="text-sm font-bold text-teal-800 mb-2">Attendance Rate</div>
+                <div className="text-4xl font-bold text-teal-900">{reportMetrics.attendanceRate}%</div>
               </div>
             </div>
 
-            {/* Attendance Trend Chart */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-6 bg-blue-50 p-4 rounded-xl print:bg-white">
-                Attendance Trend ({timeScale.charAt(0).toUpperCase() + timeScale.slice(1)})
-              </h4>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={getAttendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="period" tick={{ fontSize: 14, fontWeight: 'bold' }} />
-                  <YAxis tick={{ fontSize: 14, fontWeight: 'bold' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      border: '2px solid #3B82F6',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                  <Legend wrapperStyle={{ fontSize: '16px', fontWeight: 'bold' }} />
-                  <Line type="monotone" dataKey="attendance" stroke="#3B82F6" strokeWidth={4} name="Attendance" />
-                  <Line type="monotone" dataKey="capacity" stroke="#10B981" strokeWidth={4} name="Capacity" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-6 bg-gray-50 p-4 rounded-xl print:bg-white">Recent Registrations</h4>
-              <div className="space-y-4">
-                {participants.length > 0 ? (
-                  participants
-                    .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-                    .slice(0, 5)
-                    .map(participant => (
-                      <div key={participant.id} className="flex items-center justify-between p-5 bg-blue-50 rounded-xl border-2 border-blue-200 hover:bg-blue-100 transition-colors print:bg-white">
-                        <div>
-                          <div className="text-xl font-bold text-gray-900">
-                            {participant.first_name} {participant.last_name}
-                          </div>
-                          <div className="text-base text-gray-600 mt-1">{participant.email}</div>
-                        </div>
-                        <div className="text-base font-bold text-gray-700 bg-white px-4 py-2 rounded-lg">
-                          {participant.created_at ? new Date(participant.created_at).toLocaleDateString() : 'N/A'}
-                        </div>
-                      </div>
-                    ))
+            {/* Pie Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+              {/* Age Distribution */}
+              <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Age Distribution</h3>
+                {ageDistributionData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={ageDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={(entry) => `${entry.name}: ${entry.value}`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {ageDistributionData.map((entry, index) => (
+                          <Cell key={`age-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <div className="text-center text-gray-500 py-8">
-                    <p className="text-xl font-semibold">No participants registered yet</p>
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No data available
+                  </div>
+                )}
+              </div>
+
+              {/* Gender Distribution */}
+              <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Gender Distribution</h3>
+                {genderDistributionData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={genderDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={(entry) => `${entry.name}: ${entry.value}`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {genderDistributionData.map((entry, index) => (
+                          <Cell key={`gender-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No data available
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Programs Report */}
-        {selectedReport === 'programs' && (
-          <div className="space-y-8">
-            {/* Bar Chart */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-8 bg-teal-50 p-5 rounded-xl print:bg-white">
-                Program Enrollment Chart
-              </h4>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={currentProgramEnrollments}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 'bold' }} angle={-15} textAnchor="end" height={100} />
-                  <YAxis tick={{ fontSize: 14, fontWeight: 'bold' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      border: '2px solid #14B8A6',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                  <Legend wrapperStyle={{ fontSize: '16px', fontWeight: 'bold' }} />
-                  <Bar dataKey="count" fill="#14B8A6" name="Participants" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Pie Chart */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-8 bg-teal-50 p-5 rounded-xl print:bg-white">
-                Program Distribution
-              </h4>
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={programPieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    label={(entry) => `${entry.name}: ${entry.value}`}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {programPieData.map((entry, index) => (
-                      <Cell key={entry.id || `cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      border: '2px solid #8B5CF6',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Detailed List */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-8 bg-teal-50 p-5 rounded-xl print:bg-white">Detailed Enrollment</h4>
-              <div className="space-y-6">
-                {currentProgramEnrollments.map((program) => (
-                  <div key={program.programId || program.name} className="bg-gray-50 p-6 rounded-xl border-2 border-gray-200 print:bg-white">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-xl font-bold text-gray-900">{program.name}</span>
-                      <span className="text-lg font-bold text-white bg-teal-600 px-5 py-2 rounded-full">
-                        {program.count} participant{program.count !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-300 rounded-full h-6 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-teal-500 to-teal-600 h-6 rounded-full transition-all shadow-inner"
-                        style={{ width: `${totalParticipants > 0 ? (program.count / totalParticipants) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+            {/* Program Table */}
+            <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Program Details</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-3 px-4 font-bold text-gray-700">Program</th>
+                      <th className="text-left py-3 px-4 font-bold text-gray-700">Category</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-700">Unique Participants</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-700">Attendances</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-700">Attendance Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {programTableData.length > 0 ? (
+                      programTableData.map((row, index) => (
+                        <tr key={index} className="border-b border-gray-200 hover:bg-gray-100">
+                          <td className="py-3 px-4">{row.name}</td>
+                          <td className="py-3 px-4">{row.category}</td>
+                          <td className="py-3 px-4 text-center">{row.uniqueParticipants}</td>
+                          <td className="py-3 px-4 text-center">{row.attendances}</td>
+                          <td className="py-3 px-4 text-center">{row.attendanceRate}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-gray-500">
+                          No program data available for the selected filters
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         )}
-
-        {/* Attendance Report */}
-        {selectedReport === 'attendance' && (
-          <div className="space-y-8">
-            {/* Attendance Bar Chart */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-6 bg-teal-50 p-5 rounded-xl print:bg-white">
-                Attendance vs Capacity ({timeScale.charAt(0).toUpperCase() + timeScale.slice(1)})
-              </h4>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={getAttendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="period" tick={{ fontSize: 14, fontWeight: 'bold' }} />
-                  <YAxis tick={{ fontSize: 14, fontWeight: 'bold' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      border: '2px solid #3B82F6',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                  <Legend wrapperStyle={{ fontSize: '16px', fontWeight: 'bold' }} />
-                  <Bar dataKey="attendance" fill="#3B82F6" name="Attendance" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="capacity" fill="#10B981" name="Capacity" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Attendance Rate Summary */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-gray-200 print:border-2">
-              <h4 className="text-2xl font-bold text-gray-900 mb-6 bg-blue-50 p-5 rounded-xl print:bg-white">
-                Attendance Summary
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-400 to-blue-500 text-white p-6 rounded-xl shadow-lg">
-                  <div className="text-lg font-semibold mb-2">Average Attendance</div>
-                  <div className="text-4xl font-bold">
-                    {getAttendanceData.length > 0 ? Math.round(getAttendanceData.reduce((sum, d) => sum + d.attendance, 0) / getAttendanceData.length) : 0}
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-green-400 to-green-500 text-white p-6 rounded-xl shadow-lg">
-                  <div className="text-lg font-semibold mb-2">Attendance Rate</div>
-                  <div className="text-4xl font-bold">
-                    {getAttendanceData.reduce((sum, d) => sum + d.capacity, 0) > 0 
-                      ? Math.round((getAttendanceData.reduce((sum, d) => sum + d.attendance, 0) / 
-                         getAttendanceData.reduce((sum, d) => sum + d.capacity, 0)) * 100)
-                      : 0}%
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-400 to-purple-500 text-white p-6 rounded-xl shadow-lg">
-                  <div className="text-lg font-semibold mb-2">Total Sessions</div>
-                  <div className="text-4xl font-bold">{getAttendanceData.length}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Back Button */}
-        <div className="mt-8 print:hidden">
-          <button
-            onClick={() => navigate('/')}
-            className="px-8 py-5 border-4 border-gray-400 text-gray-700 rounded-xl text-xl font-bold hover:bg-gray-100 transition-colors shadow-md"
-          >
-            ← Back to Home
-          </button>
-        </div>
       </div>
     </Layout>
   );

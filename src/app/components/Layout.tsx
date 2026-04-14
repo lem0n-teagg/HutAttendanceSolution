@@ -40,21 +40,22 @@ export function Layout({ children, title, showSidebar = true }: LayoutProps) {
   const isDashboard = location.pathname === '/' || location.pathname === '/dashboard' || location.pathname === '/participant-dashboard';
 
   const staffMenuItems = [
-    { path: 'home', icon: Home, label: 'Home', color: 'gray', action: 'home' },
-    { path: '/attendance', icon: ClipboardCheck, label: 'Mark Attendance', color: 'blue' },
-    { path: '/add-participant', icon: UserPlus, label: 'Register Participant', color: 'green', managerOnly: true },
-    { path: '/search?action=add-to-program', icon: UserCheck, label: 'Add to Program', color: 'purple', managerOnly: true },
-    { path: '/search', icon: Search, label: 'Find Participant', color: 'orange', adminOnly: true },
-    { path: '/programs', icon: FolderOpen, label: 'View Programs', color: 'gray', adminOnly: true },
-    { path: '/reports', icon: BarChart3, label: 'View Reports', color: 'teal', adminOnly: true },
-    { path: '/training', icon: GraduationCap, label: 'Staff Training', color: 'indigo' },
+    { path: 'home', icon: Home, label: 'Home', color: 'gray', action: 'home', roles: ['Program Coordinator', 'Data Entry', 'Manager/Administrator'] },
+    { path: '/attendance', icon: ClipboardCheck, label: 'Mark Attendance', color: 'blue', roles: ['Program Coordinator', 'Manager/Administrator'] },
+    { path: '/add-participant-multistep', icon: UserPlus, label: 'Add New Participant', color: 'green', roles: ['Program Coordinator', 'Data Entry', 'Manager/Administrator'] },
+    { path: '/search?action=add-to-program', icon: UserCheck, label: 'Add to Program', color: 'purple', roles: ['Program Coordinator', 'Data Entry', 'Manager/Administrator'] },
+    { path: '/search', icon: Search, label: 'Find Participant', color: 'orange', roles: ['Program Coordinator', 'Data Entry', 'Manager/Administrator'] },
+    { path: '/reports', icon: BarChart3, label: 'View Reports', color: 'teal', roles: ['Manager/Administrator'] },
+    { path: '/programs', icon: FolderOpen, label: 'Manage Programs', color: 'gray', roles: ['Manager/Administrator'] },
+    { path: '/training', icon: GraduationCap, label: 'Staff Training', color: 'indigo', roles: ['Program Coordinator', 'Data Entry', 'Manager/Administrator'] },
+    { path: '/approvals', icon: User, label: 'User Approvals', color: 'pink', roles: ['Manager/Administrator'] },
   ];
 
   const participantMenuItems = [
-    { path: 'home', icon: Home, label: 'Home', color: 'gray', action: 'home' },
-    { path: '/participant/profile', icon: User, label: 'My Profile', color: 'blue' },
-    { path: '/participant/events', icon: Calendar, label: 'Register for Events', color: 'green' },
-    { path: '/participant/records', icon: FileText, label: 'My Records', color: 'purple' },
+    { path: 'home', icon: Home, label: 'Home', color: 'gray', action: 'home', roles: ['Participant'] },
+    { path: '/participant/profile', icon: User, label: 'My Profile', color: 'blue', roles: ['Participant'] },
+    { path: '/participant/events', icon: Calendar, label: 'Register for Events', color: 'green', roles: ['Participant'] },
+    { path: '/participant/records', icon: FileText, label: 'My Records', color: 'purple', roles: ['Participant'] },
   ];
 
   // Filter menu items based on role
@@ -62,19 +63,9 @@ export function Layout({ children, title, showSidebar = true }: LayoutProps) {
     if (user?.role === 'Participant') {
       return participantMenuItems;
     }
-    
-    // For staff - only Mark Attendance and Staff Training
-    if (user?.role === 'staff') {
-      return staffMenuItems.filter(item => !item.managerOnly && !item.adminOnly);
-    }
-    
-    // For manager - Staff + Register Participant + Add to Program
-    if (user?.role === 'manager') {
-      return staffMenuItems.filter(item => !item.adminOnly);
-    }
-    
-    // For admin - full access
-    return staffMenuItems;
+
+    // Filter staff menu items based on user role
+    return staffMenuItems.filter(item => item.roles.includes(user?.role as any));
   };
 
   const menuItems = getFilteredMenuItems();

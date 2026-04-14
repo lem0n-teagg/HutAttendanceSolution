@@ -9,21 +9,25 @@ export default function Dashboard() {
 
   // Check if user can access a feature based on their role
   const canAccess = (feature: string) => {
-    // Everyone can access Mark Attendance and Staff Training
-    if (feature === 'attendance' || feature === 'training') {
+    if (!user) return false;
+
+    const role = user.role;
+
+    // Program Coordinator access
+    if (role === 'Program Coordinator') {
+      return ['attendance', 'add-participant', 'add-to-program', 'search', 'training'].includes(feature);
+    }
+
+    // Data Entry access
+    if (role === 'Data Entry') {
+      return ['add-participant', 'add-to-program', 'search', 'training'].includes(feature);
+    }
+
+    // Manager/Administrator access - full access
+    if (role === 'Manager/Administrator') {
       return true;
     }
-    
-    // Manager and Admin can access Register Participant and Add to Program
-    if (feature === 'add-participant' || feature === 'add-to-program') {
-      return user?.role === 'manager' || user?.role === 'admin';
-    }
-    
-    // Only Admin can access Search, Programs, Reports, and Approvals
-    if (feature === 'search' || feature === 'programs' || feature === 'reports' || feature === 'approvals') {
-      return user?.role === 'admin';
-    }
-    
+
     return false;
   };
 
