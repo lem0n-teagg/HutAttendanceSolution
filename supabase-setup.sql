@@ -110,7 +110,7 @@ BEGIN
   VALUES (
     new.id,
     new.email,
-    COALESCE(new.raw_user_meta_data->>'role', 'volunteer'),
+    COALESCE(new.raw_user_meta_data->>'role', 'staff'),
     COALESCE(new.raw_user_meta_data->>'full_name', new.email)
   );
   RETURN new;
