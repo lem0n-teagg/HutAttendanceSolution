@@ -5,9 +5,11 @@ const supabaseUrl = supabaseConfig.url || 'https://placeholder.supabase.co';
 const supabaseAnonKey = supabaseConfig.anonKey || 'placeholder-key';
 
 // Check if credentials are configured
-const isConfigured = supabaseConfig.url !== '' && 
+const isConfigured = supabaseConfig.url !== '' &&
+                     supabaseConfig.url !== 'YOUR_SUPABASE_PROJECT_URL' &&
                      supabaseConfig.url !== 'YOUR_SUPABASE_URL_HERE' &&
                      supabaseConfig.anonKey !== '' &&
+                     supabaseConfig.anonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
                      supabaseConfig.anonKey !== 'YOUR_SUPABASE_ANON_KEY_HERE';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -15,16 +17,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const isSupabaseConfigured = isConfigured;
 
 // Database Types
-export type UserRole = 'Program Coordinator' | 'Data Entry' | 'Manager/Administrator';
-export type StaffType = 'Employee' | 'Volunteer';
-
 export interface Profile {
   id: string;
   email: string;
-  role: UserRole;
-  staff_type?: StaffType;
+  role: 'staff' | 'manager' | 'admin';
   full_name: string;
-  approved?: boolean;
+  approved: boolean;
   created_at?: string;
 }
 
@@ -45,9 +43,6 @@ export interface Participant {
   emergency_contact_name: string;
   emergency_contact_phone: string;
   additional_requirements?: string;
-  identify_aboriginal_tsi?: string;
-  speak_other_language?: string;
-  country_of_birth?: string;
   created_at?: string;
 }
 
@@ -55,7 +50,6 @@ export interface Program {
   id?: string;
   name: string;
   description: string;
-  category?: string;
   days: string[]; // Array of days: ['Monday', 'Tuesday', etc.]
   start_time: string;
   end_time: string;

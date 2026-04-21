@@ -15,8 +15,42 @@ interface GeneralInfoStepProps {
   handleChange: (field: string, value: any) => void;
 }
 
+// Function to calculate age from date of birth
+function calculateAge(dobDay: string, dobMonth: string, dobYear: string): number | null {
+  if (!dobDay || !dobMonth || !dobYear) return null;
+
+  const birthDate = new Date(parseInt(dobYear), parseInt(dobMonth) - 1, parseInt(dobDay));
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
+// Function to get age range for reporting
+function getAgeRange(age: number): string {
+  if (age < 5) return '0-4';
+  if (age < 12) return '5-11';
+  if (age < 18) return '12-17';
+  if (age < 25) return '18-24';
+  if (age < 35) return '25-34';
+  if (age < 45) return '35-44';
+  if (age < 55) return '45-54';
+  if (age < 65) return '55-64';
+  if (age < 75) return '65-74';
+  return '75+';
+}
+
 export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps) {
   const [emailExists, setEmailExists] = useState(false);
+
+  // Calculate age whenever DOB changes
+  const calculatedAge = calculateAge(formData.dobDay, formData.dobMonth, formData.dobYear);
+  const ageRange = calculatedAge !== null ? getAgeRange(calculatedAge) : null;
 
   useEffect(() => {
     const checkEmail = async () => {
@@ -44,31 +78,52 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
       <div className="bg-blue-50 p-6 rounded-xl border-2 border-blue-200">
         <h4 className="text-xl font-bold text-blue-900 mb-4">Personal Information</h4>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-lg font-bold text-gray-700 mb-2">
-              First Name <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.firstName}
-              onChange={(e) => handleChange('firstName', e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-              placeholder="Enter first name"
-            />
-          </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-lg font-bold text-gray-700 mb-2">
+                Title
+              </label>
+              <select
+                value={formData.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select title</option>
+                <option value="Mr">Mr</option>
+                <option value="Mrs">Mrs</option>
+                <option value="Ms">Ms</option>
+                <option value="Miss">Miss</option>
+                <option value="Dr">Dr</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-lg font-bold text-gray-700 mb-2">
-              Last Name <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.lastName}
-              onChange={(e) => handleChange('lastName', e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-              placeholder="Enter last name"
-            />
+            <div>
+              <label className="block text-lg font-bold text-gray-700 mb-2">
+                Given Name <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => handleChange('firstName', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Enter given name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-lg font-bold text-gray-700 mb-2">
+                Last Name <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => handleChange('lastName', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Enter last name"
+              />
+            </div>
           </div>
 
           <div>
@@ -85,17 +140,32 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
             {emailExists && <p className="text-red-500 text-sm">Email already exists. Please use a different email.</p>}
           </div>
 
-          <div>
-            <label className="block text-lg font-bold text-gray-700 mb-2">
-              Phone <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => handleChange('phone', e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-              placeholder="Enter phone number"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-lg font-bold text-gray-700 mb-2">
+                Home Tel
+              </label>
+              <input
+                type="tel"
+                value={formData.homeTel}
+                onChange={(e) => handleChange('homeTel', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Home telephone"
+              />
+            </div>
+
+            <div>
+              <label className="block text-lg font-bold text-gray-700 mb-2">
+                Mobile Tel <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Mobile telephone"
+              />
+            </div>
           </div>
         </div>
 
@@ -180,6 +250,16 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
               </select>
             </div>
           </div>
+
+          {/* Display calculated age */}
+          {calculatedAge !== null && (
+            <div className="mt-4 bg-blue-100 border-2 border-blue-300 rounded-lg p-4">
+              <p className="text-lg font-bold text-blue-900">
+                Age: {calculatedAge} years old
+                {ageRange && <span className="ml-4 text-base text-blue-700">(Age Range: {ageRange})</span>}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -494,14 +574,46 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
               />
             </div>
           )}
+
+          <div>
+            <label className="block text-lg font-bold text-gray-700 mb-2">
+              Are you accessing this service as a member of the LGBTI+ community?
+            </label>
+            <select
+              value={formData.lgbtiCommunity}
+              onChange={(e) => handleChange('lgbtiCommunity', e.target.value)}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Select an option</option>
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Preferences Section */}
       <div className="bg-indigo-50 p-6 rounded-xl border-2 border-indigo-200">
         <h4 className="text-xl font-bold text-indigo-900 mb-4">Communication Preferences</h4>
-        
+
         <div className="space-y-4">
+          {/* Check All */}
+          <label className="flex items-center gap-3 cursor-pointer bg-indigo-100 p-3 rounded-lg border-2 border-indigo-300">
+            <input
+              type="checkbox"
+              checked={formData.receiveNewsletter && formData.receiveCourseNotifications}
+              onChange={(e) => {
+                handleChange('receiveNewsletter', e.target.checked);
+                handleChange('receiveCourseNotifications', e.target.checked);
+              }}
+              className="w-6 h-6 rounded border-2 border-gray-300"
+            />
+            <span className="text-lg font-bold text-indigo-900">
+              Check All
+            </span>
+          </label>
+
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -531,7 +643,32 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
       {/* Referral Sources Section */}
       <div className="bg-orange-50 p-6 rounded-xl border-2 border-orange-200">
         <h4 className="text-xl font-bold text-orange-900 mb-4">How did you hear about us?</h4>
-        
+
+        {/* Check All */}
+        <label className="flex items-center gap-3 cursor-pointer bg-orange-100 p-3 rounded-lg border-2 border-orange-300 mb-4">
+          <input
+            type="checkbox"
+            checked={formData.referralBrochure && formData.referralReferral && formData.referralEmailFromHut &&
+                     formData.referralFamilyFriend && formData.referralSocialMedia && formData.referralLocalNewspaper &&
+                     formData.referralLocalNoticeboard && formData.referralWeb}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              handleChange('referralBrochure', checked);
+              handleChange('referralReferral', checked);
+              handleChange('referralEmailFromHut', checked);
+              handleChange('referralFamilyFriend', checked);
+              handleChange('referralSocialMedia', checked);
+              handleChange('referralLocalNewspaper', checked);
+              handleChange('referralLocalNoticeboard', checked);
+              handleChange('referralWeb', checked);
+            }}
+            className="w-6 h-6 rounded border-2 border-gray-300"
+          />
+          <span className="text-lg font-bold text-orange-900">
+            Check All
+          </span>
+        </label>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -634,8 +771,30 @@ export function GeneralInfoStep({ formData, handleChange }: GeneralInfoStepProps
         <p className="text-gray-700 mb-4">
           I give permission for The Hut to use photographs or video recordings of me for:
         </p>
-        
+
         <div className="space-y-4">
+          {/* Check All */}
+          <label className="flex items-center gap-3 cursor-pointer bg-pink-100 p-3 rounded-lg border-2 border-pink-300">
+            <input
+              type="checkbox"
+              checked={formData.photoConsentWebsite && formData.photoConsentSocialMedia &&
+                       formData.photoConsentAnnualReport && formData.photoConsentBrochures &&
+                       formData.photoConsentLocalMedia}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                handleChange('photoConsentWebsite', checked);
+                handleChange('photoConsentSocialMedia', checked);
+                handleChange('photoConsentAnnualReport', checked);
+                handleChange('photoConsentBrochures', checked);
+                handleChange('photoConsentLocalMedia', checked);
+              }}
+              className="w-6 h-6 rounded border-2 border-gray-300"
+            />
+            <span className="text-lg font-bold text-pink-900">
+              Check All
+            </span>
+          </label>
+
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -712,16 +871,15 @@ export function ProgramSelectionStep({ selectedPrograms, onToggleProgram }: Prog
         .order('name', { ascending: true });
 
       if (error) throw error;
-      
-      // Map database programs to our format with colors
-      const colors = ['blue', 'green', 'purple', 'orange', 'red', 'pink', 'indigo', 'teal', 'cyan', 'yellow', 'amber', 'lime'];
-      const mappedPrograms = (data || []).map((prog, index) => ({
+
+      // Map database programs to our format with colors and categories
+      const mappedPrograms = (data || []).map((prog) => ({
         id: prog.id,
         name: prog.name,
         description: prog.description || 'Program details',
-        color: colors[index % colors.length]
+        color: 'blue' // Will be assigned based on category
       }));
-      
+
       setPrograms(mappedPrograms);
     } catch (err) {
       console.error('Error fetching programs:', err);
@@ -730,19 +888,32 @@ export function ProgramSelectionStep({ selectedPrograms, onToggleProgram }: Prog
     }
   };
 
-  const colorClasses: Record<string, { bg: string; border: string; selected: string }> = {
-    blue: { bg: 'bg-blue-50', border: 'border-blue-300', selected: 'border-blue-600 bg-blue-100' },
-    green: { bg: 'bg-green-50', border: 'border-green-300', selected: 'border-green-600 bg-green-100' },
+  // Categorize programs
+  const childrenProgramNames = [
+    'Outdoor Playgroup',
+    'Homework Club',
+    'Dungeons & Dragons',
+    'Intergenerational Mentoring'
+  ];
+
+  const fitnessProgramNames = [
+    'Community Fun Fitness',
+    'Strength & Balance (Stirling)',
+    'Chi Kung',
+    'Walking Group',
+    "Men's Moves"
+  ];
+
+  const childrenPrograms = programs.filter(p => childrenProgramNames.includes(p.name));
+  const fitnessPrograms = programs.filter(p => fitnessProgramNames.includes(p.name));
+  const genericPrograms = programs.filter(p =>
+    !childrenProgramNames.includes(p.name) && !fitnessProgramNames.includes(p.name)
+  );
+
+  const colorClasses = {
     purple: { bg: 'bg-purple-50', border: 'border-purple-300', selected: 'border-purple-600 bg-purple-100' },
     orange: { bg: 'bg-orange-50', border: 'border-orange-300', selected: 'border-orange-600 bg-orange-100' },
-    red: { bg: 'bg-red-50', border: 'border-red-300', selected: 'border-red-600 bg-red-100' },
-    pink: { bg: 'bg-pink-50', border: 'border-pink-300', selected: 'border-pink-600 bg-pink-100' },
-    indigo: { bg: 'bg-indigo-50', border: 'border-indigo-300', selected: 'border-indigo-600 bg-indigo-100' },
-    teal: { bg: 'bg-teal-50', border: 'border-teal-300', selected: 'border-teal-600 bg-teal-100' },
-    cyan: { bg: 'bg-cyan-50', border: 'border-cyan-300', selected: 'border-cyan-600 bg-cyan-100' },
-    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-300', selected: 'border-yellow-600 bg-yellow-100' },
-    amber: { bg: 'bg-amber-50', border: 'border-amber-300', selected: 'border-amber-600 bg-amber-100' },
-    lime: { bg: 'bg-lime-50', border: 'border-lime-300', selected: 'border-lime-600 bg-lime-100' }
+    green: { bg: 'bg-green-50', border: 'border-green-300', selected: 'border-green-600 bg-green-100' }
   };
 
   if (loading) {
@@ -767,49 +938,86 @@ export function ProgramSelectionStep({ selectedPrograms, onToggleProgram }: Prog
     );
   }
 
+  const renderProgramCard = (program: any, categoryColor: string) => {
+    const isSelected = selectedPrograms.includes(program.id);
+    const colors = colorClasses[categoryColor as keyof typeof colorClasses];
+
+    return (
+      <button
+        key={program.id}
+        type="button"
+        onClick={() => onToggleProgram(program.id)}
+        className={`p-6 rounded-xl border-4 text-left transition-all ${
+          isSelected
+            ? colors.selected + ' shadow-lg transform scale-105'
+            : colors.bg + ' ' + colors.border + ' hover:shadow-md'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div className={`flex-shrink-0 w-8 h-8 rounded-full border-3 flex items-center justify-center ${
+            isSelected ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300'
+          }`}>
+            {isSelected && <Check size={20} className="text-white" strokeWidth={3} />}
+          </div>
+          <div className="flex-1">
+            <h5 className="text-lg font-bold text-gray-900 mb-1">{program.name}</h5>
+            <p className="text-gray-700">{program.description}</p>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 mb-6">
         <p className="text-lg font-semibold text-blue-900">
           Select one or more programs you're interested in joining:
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {programs.map(program => {
-          const isSelected = selectedPrograms.includes(program.id);
-          const colors = colorClasses[program.color];
-          
-          return (
-            <button
-              key={program.id}
-              type="button"
-              onClick={() => onToggleProgram(program.id)}
-              className={`p-6 rounded-xl border-4 text-left transition-all ${
-                isSelected 
-                  ? colors.selected + ' shadow-lg transform scale-105'
-                  : colors.bg + ' ' + colors.border + ' hover:shadow-md'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full border-3 flex items-center justify-center ${
-                  isSelected ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300'
-                }`}>
-                  {isSelected && <Check size={20} className="text-white" strokeWidth={3} />}
-                </div>
-                <div className="flex-1">
-                  <h5 className="text-lg font-bold text-gray-900 mb-1">{program.name}</h5>
-                  <p className="text-gray-700">{program.description}</p>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {/* Children's Programs Section */}
+      {childrenPrograms.length > 0 && (
+        <div className="space-y-4">
+          <div className="bg-purple-100 p-4 rounded-lg border-2 border-purple-300">
+            <h4 className="text-xl font-bold text-purple-900">Children's Programs</h4>
+            <p className="text-sm text-purple-700 mt-1">Programs designed for children and families</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {childrenPrograms.map(program => renderProgramCard(program, 'purple'))}
+          </div>
+        </div>
+      )}
+
+      {/* Fitness Programs Section */}
+      {fitnessPrograms.length > 0 && (
+        <div className="space-y-4">
+          <div className="bg-orange-100 p-4 rounded-lg border-2 border-orange-300">
+            <h4 className="text-xl font-bold text-orange-900">Fitness & Wellbeing Programs</h4>
+            <p className="text-sm text-orange-700 mt-1">Physical activity and health programs</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fitnessPrograms.map(program => renderProgramCard(program, 'orange'))}
+          </div>
+        </div>
+      )}
+
+      {/* Generic Programs Section */}
+      {genericPrograms.length > 0 && (
+        <div className="space-y-4">
+          <div className="bg-green-100 p-4 rounded-lg border-2 border-green-300">
+            <h4 className="text-xl font-bold text-green-900">General Programs</h4>
+            <p className="text-sm text-green-700 mt-1">Community activities and workshops</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {genericPrograms.map(program => renderProgramCard(program, 'green'))}
+          </div>
+        </div>
+      )}
 
       {selectedPrograms.length > 0 && (
-        <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200 mt-6">
-          <p className="text-lg font-semibold text-green-900">
+        <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 mt-6">
+          <p className="text-lg font-semibold text-blue-900">
             {selectedPrograms.length} program{selectedPrograms.length !== 1 ? 's' : ''} selected
           </p>
         </div>
@@ -821,370 +1029,587 @@ export function ProgramSelectionStep({ selectedPrograms, onToggleProgram }: Prog
 interface ProgramSpecificStepProps {
   selectedPrograms: string[];
   programData: Record<string, any>;
-  onDataChange: (programId: string, field: string, value: any) => void;
+  onDataChange: (categoryKey: string, field: string, value: any) => void;
 }
 
 export function ProgramSpecificStep({ selectedPrograms, programData, onDataChange }: ProgramSpecificStepProps) {
-  // Programs that need additional information
-  const programRequirements: Record<string, { fields: Array<{ name: string; label: string; type: string; options?: string[]; allowMultiple?: boolean }> }> = {
-    'chi-kung': {
-      fields: [
-        { name: 'medicalConditions', label: 'Do you have any medical conditions we should be aware of?', type: 'textarea' },
-        { name: 'mobilityLevel', label: 'Mobility Level', type: 'select', options: ['Good', 'Moderate', 'Limited'] }
-      ]
-    },
-    'outdoor-playgroup': {
-      fields: [
-        { name: 'children', label: 'Children Information', type: 'multiple-children', allowMultiple: true }
-      ]
-    },
-    'dungeons-dragons': {
-      fields: [
-        { name: 'experienceLevel', label: 'Experience Level', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced'] },
-        { name: 'characterPreference', label: 'Preferred Character Type', type: 'text' }
-      ]
-    },
-    'homework-club': {
-      fields: [
-        { name: 'students', label: 'Students Information', type: 'multiple-students', allowMultiple: true }
-      ]
-    },
-    'strength-balance-stirling': {
-      fields: [
-        { name: 'medicalConditions', label: 'Do you have any medical conditions we should be aware of?', type: 'textarea' },
-        { name: 'mobilityAids', label: 'Do you use mobility aids?', type: 'select', options: ['No', 'Yes - Walking stick', 'Yes - Walker', 'Yes - Wheelchair', 'Yes - Other'] }
-      ]
-    },
-    'community-fun-fitness': {
-      fields: [
-        { name: 'fitnessLevel', label: 'Current Fitness Level', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced'] },
-        { name: 'healthConsiderations', label: 'Any health considerations?', type: 'textarea' }
-      ]
-    },
-    'mens-moves': {
-      fields: [
-        { name: 'fitnessLevel', label: 'Current Fitness Level', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced'] },
-        { name: 'injuries', label: 'Any injuries or physical limitations?', type: 'textarea' }
-      ]
-    },
-    'community-shed': {
-      fields: [
-        { name: 'interests', label: 'What projects are you interested in?', type: 'textarea' },
-        { name: 'skills', label: 'Do you have any woodworking or metalworking skills?', type: 'select', options: ['No experience', 'Some experience', 'Experienced'] }
-      ]
-    },
-    'walking-group': {
-      fields: [
-        { name: 'walkingPace', label: 'Preferred Walking Pace', type: 'select', options: ['Leisurely', 'Moderate', 'Brisk'] },
-        { name: 'mobilityLevel', label: 'Any mobility considerations?', type: 'textarea' }
-      ]
+  const [programs, setPrograms] = useState<Array<{ id: string; name: string }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPrograms();
+  }, []);
+
+  const fetchPrograms = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('programs')
+        .select('id, name')
+        .in('id', selectedPrograms);
+
+      if (error) throw error;
+      setPrograms(data || []);
+    } catch (err) {
+      console.error('Error fetching programs:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const programsNeedingInfo = selectedPrograms.filter(id => programRequirements[id]);
+  // Define which programs require children-specific data
+  const childrenPrograms = [
+    'Outdoor Playgroup',
+    'Homework Club',
+    'Dungeons & Dragons',
+    'Intergenerational Mentoring'
+  ];
 
-  // Helper functions for children (Outdoor Playgroup)
-  const addChild = (programId: string) => {
-    const currentChildren = programData[programId]?.children || [];
-    onDataChange(programId, 'children', [...currentChildren, { name: '', age: '', allergies: '' }]);
-  };
+  // Define which programs require fitness/health data
+  const fitnessPrograms = [
+    'Community Fun Fitness',
+    'Strength & Balance (Stirling)',
+    'Chi Kung',
+    'Walking Group',
+    "Men's Moves"
+  ];
 
-  const removeChild = (programId: string, index: number) => {
-    const currentChildren = programData[programId]?.children || [];
-    const newChildren = currentChildren.filter((_: any, i: number) => i !== index);
-    onDataChange(programId, 'children', newChildren);
-  };
+  // Check if any selected programs require children-specific data
+  const requiresChildrenData = programs.some(prog =>
+    childrenPrograms.includes(prog.name)
+  );
 
-  const updateChild = (programId: string, index: number, field: string, value: any) => {
-    const currentChildren = programData[programId]?.children || [];
-    const newChildren = [...currentChildren];
-    newChildren[index] = { ...newChildren[index], [field]: value };
-    onDataChange(programId, 'children', newChildren);
-  };
+  // Check if any selected programs require fitness/health data
+  const requiresFitnessData = programs.some(prog =>
+    fitnessPrograms.includes(prog.name)
+  );
 
-  // Helper functions for students (Homework Club)
-  const addStudent = (programId: string) => {
-    const currentStudents = programData[programId]?.students || [];
-    onDataChange(programId, 'students', [...currentStudents, { name: '', gradeLevel: '', subjectsNeedHelp: '' }]);
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg font-semibold text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const removeStudent = (programId: string, index: number) => {
-    const currentStudents = programData[programId]?.students || [];
-    const newStudents = currentStudents.filter((_: any, i: number) => i !== index);
-    onDataChange(programId, 'students', newStudents);
-  };
-
-  const updateStudent = (programId: string, index: number, field: string, value: any) => {
-    const currentStudents = programData[programId]?.students || [];
-    const newStudents = [...currentStudents];
-    newStudents[index] = { ...newStudents[index], [field]: value };
-    onDataChange(programId, 'students', newStudents);
-  };
-
-  if (programsNeedingInfo.length === 0) {
+  // If no programs require specific data, show completion message
+  if (!requiresChildrenData && !requiresFitnessData) {
     return (
       <div className="bg-green-50 p-8 rounded-xl border-4 border-green-200 text-center">
         <Check size={64} className="text-green-600 mx-auto mb-4" />
         <h4 className="text-2xl font-bold text-green-900 mb-2">All Set!</h4>
         <p className="text-lg text-green-700">
-          The programs you selected don't require additional information. Click "Complete Registration" to finish.
+          All required information has been collected. Click "Complete Registration" to finish.
         </p>
       </div>
     );
   }
 
+  // Filter selected programs by type
+  const childrenProgramsSelected = programs.filter(prog =>
+    childrenPrograms.includes(prog.name)
+  );
+
+  const fitnessProgramsSelected = programs.filter(prog =>
+    fitnessPrograms.includes(prog.name)
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 mb-6">
-        <p className="text-lg font-semibold text-blue-900">
-          Please provide additional information for the programs you selected:
-        </p>
-      </div>
+    <div className="space-y-8">
+      {childrenProgramsSelected.length > 0 && (
+        <>
+          <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200">
+            <p className="text-lg font-semibold text-blue-900">
+              Additional information required for children's programs: {childrenProgramsSelected.map(p => p.name).join(', ')}
+            </p>
+          </div>
 
-      {programsNeedingInfo.map(programId => {
-        const requirements = programRequirements[programId];
-        const data = programData[programId] || {};
+          <div className="bg-purple-50 p-6 rounded-xl border-2 border-purple-200">
+            <h4 className="text-xl font-bold text-purple-900 mb-6">Children's Programs - Child Information</h4>
+            <p className="text-sm text-purple-700 mb-4">This information will apply to all selected children's programs.</p>
 
-        return (
-          <div key={programId} className="bg-white p-6 rounded-xl border-4 border-purple-200 shadow-md">
-            <h4 className="text-xl font-bold text-purple-900 mb-4">
-              {programId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-            </h4>
-            
-            <div className="space-y-4">
-              {requirements.fields.map(field => (
-                <div key={field.name}>
-                  {/* Multiple Children for Outdoor Playgroup */}
-                  {field.type === 'multiple-children' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <label className="block text-lg font-bold text-gray-700">
-                          Children Attending
+            <div className="space-y-6">
+              {(() => {
+                const data = programData['children'] || {};
+
+                return (
+                  <>
+                    {/* Child Names */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Child Given Name <span className="text-red-600">*</span>
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => addChild(programId)}
-                          className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
-                        >
-                          <Plus size={20} />
-                          <span>Add Child</span>
-                        </button>
+                        <input
+                          type="text"
+                          value={data.childGivenName || ''}
+                          onChange={(e) => onDataChange('children', 'childGivenName', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                          placeholder="Child's given name"
+                        />
                       </div>
 
-                      {(data.children || []).map((child: any, index: number) => (
-                        <div key={index} className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200 relative">
-                          <button
-                            type="button"
-                            onClick={() => removeChild(programId, index)}
-                            className="absolute top-3 right-3 text-red-600 hover:text-red-800 transition-colors"
-                            title="Remove child"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-
-                          <h5 className="text-md font-bold text-gray-700 mb-3">Child {index + 1}</h5>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-600 mb-1">
-                                Child's Name
-                              </label>
-                              <input
-                                type="text"
-                                value={child.name || ''}
-                                onChange={(e) => updateChild(programId, index, 'name', e.target.value)}
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                                placeholder="Enter child's name"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-600 mb-1">
-                                Child's Age
-                              </label>
-                              <input
-                                type="number"
-                                value={child.age || ''}
-                                onChange={(e) => updateChild(programId, index, 'age', e.target.value)}
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                                placeholder="Age"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-600 mb-1">
-                              Allergies or Dietary Requirements
-                            </label>
-                            <textarea
-                              value={child.allergies || ''}
-                              onChange={(e) => updateChild(programId, index, 'allergies', e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                              rows={2}
-                              placeholder="Enter any allergies or dietary requirements"
-                            />
-                          </div>
-                        </div>
-                      ))}
-
-                      {(!data.children || data.children.length === 0) && (
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200 text-center">
-                          <p className="text-gray-600">No children added yet. Click "Add Child" to get started.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Multiple Students for Homework Club */}
-                  {field.type === 'multiple-students' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <label className="block text-lg font-bold text-gray-700">
-                          Students Attending
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Child Family Name (Surname) <span className="text-red-600">*</span>
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => addStudent(programId)}
-                          className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                        <input
+                          type="text"
+                          value={data.childFamilyName || ''}
+                          onChange={(e) => onDataChange('children', 'childFamilyName', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                          placeholder="Child's family name"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Child Gender and DOB */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Child Gender <span className="text-red-600">*</span>
+                        </label>
+                        <select
+                          value={data.childGender || ''}
+                          onChange={(e) => onDataChange('children', 'childGender', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
                         >
-                          <Plus size={20} />
-                          <span>Add Student</span>
-                        </button>
+                          <option value="">Select gender</option>
+                          <option value="Female">Female</option>
+                          <option value="Male">Male</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </div>
 
-                      {(data.students || []).map((student: any, index: number) => (
-                        <div key={index} className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200 relative">
-                          <button
-                            type="button"
-                            onClick={() => removeStudent(programId, index)}
-                            className="absolute top-3 right-3 text-red-600 hover:text-red-800 transition-colors"
-                            title="Remove student"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-
-                          <h5 className="text-md font-bold text-gray-700 mb-3">Student {index + 1}</h5>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-600 mb-1">
-                                Student's Name
-                              </label>
-                              <input
-                                type="text"
-                                value={student.name || ''}
-                                onChange={(e) => updateStudent(programId, index, 'name', e.target.value)}
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                                placeholder="Enter student's name"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-600 mb-1">
-                                Grade Level
-                              </label>
-                              <input
-                                type="text"
-                                value={student.gradeLevel || ''}
-                                onChange={(e) => updateStudent(programId, index, 'gradeLevel', e.target.value)}
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                                placeholder="e.g., Grade 5"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-600 mb-1">
-                              Subjects Needing Help
-                            </label>
-                            <textarea
-                              value={student.subjectsNeedHelp || ''}
-                              onChange={(e) => updateStudent(programId, index, 'subjectsNeedHelp', e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                              rows={2}
-                              placeholder="e.g., Math, English, Science"
-                            />
-                          </div>
-                        </div>
-                      ))}
-
-                      {(!data.students || data.students.length === 0) && (
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200 text-center">
-                          <p className="text-gray-600">No students added yet. Click "Add Student" to get started.</p>
-                        </div>
-                      )}
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Child Date of Birth <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={data.childDOB || ''}
+                          onChange={(e) => onDataChange('children', 'childDOB', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
                     </div>
-                  )}
-                  
-                  {/* Regular field types */}
-                  {field.type === 'text' && (
-                    <>
+
+                    {/* Aboriginal or Torres Strait Islander */}
+                    <div>
                       <label className="block text-lg font-bold text-gray-700 mb-2">
-                        {field.label}
-                      </label>
-                      <input
-                        type="text"
-                        value={data[field.name] || ''}
-                        onChange={(e) => onDataChange(programId, field.name, e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                      />
-                    </>
-                  )}
-                  
-                  {field.type === 'number' && (
-                    <>
-                      <label className="block text-lg font-bold text-gray-700 mb-2">
-                        {field.label}
-                      </label>
-                      <input
-                        type="number"
-                        value={data[field.name] || ''}
-                        onChange={(e) => onDataChange(programId, field.name, e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                      />
-                    </>
-                  )}
-                  
-                  {field.type === 'textarea' && (
-                    <>
-                      <label className="block text-lg font-bold text-gray-700 mb-2">
-                        {field.label}
-                      </label>
-                      <textarea
-                        value={data[field.name] || ''}
-                        onChange={(e) => onDataChange(programId, field.name, e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        rows={3}
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                      />
-                    </>
-                  )}
-                  
-                  {field.type === 'select' && field.options && (
-                    <>
-                      <label className="block text-lg font-bold text-gray-700 mb-2">
-                        {field.label}
+                        Do you or your child identify as Aboriginal or Torres Strait Islander? <span className="text-red-600">*</span>
                       </label>
                       <select
-                        value={data[field.name] || ''}
-                        onChange={(e) => onDataChange(programId, field.name, e.target.value)}
+                        value={data.childAboriginalTSI || ''}
+                        onChange={(e) => onDataChange('children', 'childAboriginalTSI', e.target.value)}
                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select an option</option>
-                        {field.options.map(option => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
                       </select>
-                    </>
-                  )}
-                </div>
-              ))}
+                    </div>
+
+                    {/* Photo Consent for Child */}
+                    <div className="bg-pink-50 p-4 rounded-lg border-2 border-pink-200">
+                      <label className="block text-lg font-bold text-gray-700 mb-2">
+                        Photo Consent for Child <span className="text-red-600">*</span>
+                      </label>
+                      <p className="text-sm text-gray-600 mb-3">
+                        From time to time, members of the program/club may be photographed for the promotion of the program and/or The Hut.
+                        Do you give consent for your child/children's photograph to be used for the following purposes?
+                      </p>
+
+                      <div className="space-y-3">
+                        {/* Check All */}
+                        <label className="flex items-center gap-3 cursor-pointer bg-pink-100 p-3 rounded-lg border-2 border-pink-300">
+                          <input
+                            type="checkbox"
+                            checked={!!(data.childPhotoConsentWebsite && data.childPhotoConsentSocialMedia &&
+                                     data.childPhotoConsentAnnualReport && data.childPhotoConsentBrochures &&
+                                     data.childPhotoConsentLocalMedia)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              onDataChange('children', 'childPhotoConsentWebsite', checked);
+                              onDataChange('children', 'childPhotoConsentSocialMedia', checked);
+                              onDataChange('children', 'childPhotoConsentAnnualReport', checked);
+                              onDataChange('children', 'childPhotoConsentBrochures', checked);
+                              onDataChange('children', 'childPhotoConsentLocalMedia', checked);
+                            }}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-bold text-pink-900">Check All</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.childPhotoConsentWebsite || false}
+                            onChange={(e) => onDataChange('children', 'childPhotoConsentWebsite', e.target.checked)}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-semibold text-gray-700">Website</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.childPhotoConsentSocialMedia || false}
+                            onChange={(e) => onDataChange('children', 'childPhotoConsentSocialMedia', e.target.checked)}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-semibold text-gray-700">Social Media</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.childPhotoConsentAnnualReport || false}
+                            onChange={(e) => onDataChange('children', 'childPhotoConsentAnnualReport', e.target.checked)}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-semibold text-gray-700">Annual Report</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.childPhotoConsentBrochures || false}
+                            onChange={(e) => onDataChange('children', 'childPhotoConsentBrochures', e.target.checked)}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-semibold text-gray-700">Brochures and Flyers</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.childPhotoConsentLocalMedia || false}
+                            onChange={(e) => onDataChange('children', 'childPhotoConsentLocalMedia', e.target.checked)}
+                            className="w-6 h-6 rounded border-2 border-gray-300"
+                          />
+                          <span className="text-base font-semibold text-gray-700">Local Media</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* People Authorised to Collect Child */}
+                    <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
+                      <h5 className="text-lg font-bold text-gray-700 mb-3">
+                        People Authorised to Collect Child <span className="text-red-600">*</span>
+                      </h5>
+
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-1">
+                              Name & Relationship to Child
+                            </label>
+                            <input
+                              type="text"
+                              value={data.authorisedPerson1Name || ''}
+                              onChange={(e) => onDataChange('children', 'authorisedPerson1Name', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                              placeholder="Name & relationship"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-1">
+                              Phone
+                            </label>
+                            <input
+                              type="tel"
+                              value={data.authorisedPerson1Phone || ''}
+                              onChange={(e) => onDataChange('children', 'authorisedPerson1Phone', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                              placeholder="Phone number"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-1">
+                              Name & Relationship to Child
+                            </label>
+                            <input
+                              type="text"
+                              value={data.authorisedPerson2Name || ''}
+                              onChange={(e) => onDataChange('children', 'authorisedPerson2Name', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                              placeholder="Name & relationship (optional)"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-1">
+                              Phone
+                            </label>
+                            <input
+                              type="tel"
+                              value={data.authorisedPerson2Phone || ''}
+                              onChange={(e) => onDataChange('children', 'authorisedPerson2Phone', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                              placeholder="Phone number (optional)"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Custody Issues */}
+                    <div>
+                      <label className="block text-lg font-bold text-gray-700 mb-2">
+                        Any custody issues? <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={data.custodyIssues || ''}
+                        onChange={(e) => onDataChange('children', 'custodyIssues', e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select an option</option>
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+
+                    {data.custodyIssues === 'Yes' && (
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Please provide details
+                        </label>
+                        <textarea
+                          value={data.custodyIssuesDetails || ''}
+                          onChange={(e) => onDataChange('children', 'custodyIssuesDetails', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                          rows={3}
+                          placeholder="Describe custody issues"
+                        />
+                      </div>
+                    )}
+
+                    {/* Permission to Make Own Way Home */}
+                    <div>
+                      <label className="block text-lg font-bold text-gray-700 mb-2">
+                        Permission granted to make own way home <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={data.ownWayHomePermission || ''}
+                        onChange={(e) => onDataChange('children', 'ownWayHomePermission', e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select an option</option>
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+
+                    {data.ownWayHomePermission === 'Yes' && (
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Please provide details
+                        </label>
+                        <textarea
+                          value={data.ownWayHomeDetails || ''}
+                          onChange={(e) => onDataChange('children', 'ownWayHomeDetails', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                          rows={2}
+                          placeholder="Provide details about permission"
+                        />
+                      </div>
+                    )}
+
+                    {/* School Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          School Attending <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={data.schoolAttending || ''}
+                          onChange={(e) => onDataChange('children', 'schoolAttending', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                          placeholder="School name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-lg font-bold text-gray-700 mb-2">
+                          Year Level <span className="text-red-600">*</span>
+                        </label>
+                        <select
+                          value={data.yearLevel || ''}
+                          onChange={(e) => onDataChange('children', 'yearLevel', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Select year level</option>
+                          <option value="Reception">Reception</option>
+                          <option value="Year 1">Year 1</option>
+                          <option value="Year 2">Year 2</option>
+                          <option value="Year 3">Year 3</option>
+                          <option value="Year 4">Year 4</option>
+                          <option value="Year 5">Year 5</option>
+                          <option value="Year 6">Year 6</option>
+                          <option value="Year 7">Year 7</option>
+                          <option value="Year 8">Year 8</option>
+                          <option value="Year 9">Year 9</option>
+                          <option value="Year 10">Year 10</option>
+                          <option value="Year 11">Year 11</option>
+                          <option value="Year 12">Year 12</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
-        );
-      })}
+        </>
+      )}
+
+      {fitnessProgramsSelected.length > 0 && (
+        <>
+          <div className="bg-orange-50 p-4 rounded-xl border-2 border-orange-200">
+            <p className="text-lg font-semibold text-orange-900">
+              Additional health information required for fitness programs: {fitnessProgramsSelected.map(p => p.name).join(', ')}
+            </p>
+          </div>
+
+          <div className="bg-orange-50 p-6 rounded-xl border-2 border-orange-200">
+            <h4 className="text-xl font-bold text-orange-900 mb-6">Fitness & Wellbeing Programs - Health Information</h4>
+            <p className="text-sm text-orange-700 mb-4">This information will apply to all selected fitness & wellbeing programs.</p>
+
+            <div className="space-y-6">
+              {(() => {
+                const data = programData['fitness'] || {};
+
+                return (
+                  <>
+                    {/* Health Conditions */}
+                    <div>
+                      <label className="block text-lg font-bold text-gray-700 mb-3">
+                        Health Info <span className="text-red-600">*</span>
+                      </label>
+                      <p className="text-sm text-gray-600 mb-3">Check boxes / drop down? Tick all that apply</p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[
+                          'Asthma', 'Back problems', 'Sight impairment', 'High blood pressure', 'Arthritis',
+                          'Joint replacement', 'Stroke', 'Epilepsy', 'Low blood pressure', 'Insomnia',
+                          'Heart issues', 'Menopause', 'Repetitive strain injury', 'Recent surgery', 'MS',
+                          'Diabetes', 'Recent fracture', 'Difficulty hearing', 'Hernia', 'Osteoporosis',
+                          'Detached Retina', 'Other'
+                        ].map(condition => (
+                          <label key={condition} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={(data.healthConditions || []).includes(condition)}
+                              onChange={(e) => {
+                                const current = data.healthConditions || [];
+                                const updated = e.target.checked
+                                  ? [...current, condition]
+                                  : current.filter((c: string) => c !== condition);
+                                onDataChange('fitness', 'healthConditions', updated);
+                              }}
+                              className="w-5 h-5 rounded border-2 border-gray-300"
+                            />
+                            <span className="text-gray-700">{condition}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Exercise Level */}
+                    <div>
+                      <label className="block text-lg font-bold text-gray-700 mb-3">
+                        Regular Exercise <span className="text-red-600">*</span>
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="exercise-fitness"
+                            value="No regular exercise"
+                            checked={data.regularExercise === 'No regular exercise'}
+                            onChange={(e) => onDataChange('fitness', 'regularExercise', e.target.value)}
+                            className="w-5 h-5 border-2 border-gray-300"
+                          />
+                          <span className="text-gray-700">No regular exercise</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="exercise-fitness"
+                            value="Small amount of exercise"
+                            checked={data.regularExercise === 'Small amount of exercise'}
+                            onChange={(e) => onDataChange('fitness', 'regularExercise', e.target.value)}
+                            className="w-5 h-5 border-2 border-gray-300"
+                          />
+                          <span className="text-gray-700">Small amount of exercise</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="exercise-fitness"
+                            value="Do exercise regularly"
+                            checked={data.regularExercise === 'Do exercise regularly'}
+                            onChange={(e) => onDataChange('fitness', 'regularExercise', e.target.value)}
+                            className="w-5 h-5 border-2 border-gray-300"
+                          />
+                          <span className="text-gray-700">Do exercise regularly</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Medical Procedures */}
+                    <div>
+                      <label className="block text-lg font-bold text-gray-700 mb-2">
+                        Medical procedures in the last 12 months? <span className="text-red-600">*</span>
+                      </label>
+                      <textarea
+                        value={data.medicalProcedures || ''}
+                        onChange={(e) => onDataChange('fitness', 'medicalProcedures', e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        rows={3}
+                        placeholder="Please describe any medical procedures"
+                      />
+                    </div>
+
+                    {/* Acknowledgement */}
+                    <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
+                      <label className="flex items-start gap-3 cursor-pointer mb-3">
+                        <input
+                          type="checkbox"
+                          checked={data.medicalTreatmentAcknowledged || false}
+                          onChange={(e) => onDataChange('fitness', 'medicalTreatmentAcknowledged', e.target.checked)}
+                          className="w-6 h-6 mt-1 rounded border-2 border-gray-300"
+                        />
+                        <span className="text-lg font-semibold text-gray-700">
+                          Acknowledgement we will call for medical treatment if required <span className="text-red-600">*</span>
+                        </span>
+                      </label>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={data.medicalTreatmentAcknowledgedDate || ''}
+                          onChange={(e) => onDataChange('fitness', 'medicalTreatmentAcknowledgedDate', e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -9,25 +9,21 @@ export default function Dashboard() {
 
   // Check if user can access a feature based on their role
   const canAccess = (feature: string) => {
-    if (!user) return false;
-
-    const role = user.role;
-
-    // Program Coordinator access
-    if (role === 'Program Coordinator') {
-      return ['attendance', 'add-participant', 'add-to-program', 'search', 'training'].includes(feature);
-    }
-
-    // Data Entry access
-    if (role === 'Data Entry') {
-      return ['add-participant', 'add-to-program', 'search', 'training'].includes(feature);
-    }
-
-    // Manager/Administrator access - full access
-    if (role === 'Manager/Administrator') {
+    // Everyone can access Mark Attendance and Staff Training
+    if (feature === 'attendance' || feature === 'training') {
       return true;
     }
-
+    
+    // Manager and Admin can access Register Participant and Add to Program
+    if (feature === 'add-participant' || feature === 'add-to-program') {
+      return user?.role === 'manager' || user?.role === 'admin';
+    }
+    
+    // Only Admin can access Search, Programs, Reports, and Approvals
+    if (feature === 'search' || feature === 'programs' || feature === 'reports' || feature === 'approvals') {
+      return user?.role === 'admin';
+    }
+    
     return false;
   };
 
@@ -77,7 +73,7 @@ export default function Dashboard() {
           {/* Add to Program - Manager and Admin Only */}
           {canAccess('add-to-program') && (
             <button
-              onClick={() => navigate('/search?action=add-to-program')}
+              onClick={() => navigate('/add-to-program')}
               className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-8 md:p-10 rounded-3xl shadow-2xl hover:shadow-purple-300 hover:scale-105 transition-all duration-300 text-left group"
             >
               <div className="bg-white/20 w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">

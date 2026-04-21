@@ -3,9 +3,13 @@ import { useAuth, AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
+import VolunteerDashboard from './pages/VolunteerDashboard';
 import AddParticipant from './pages/AddParticipant';
 import AddParticipantMultiStep from './pages/AddParticipantMultiStep';
 import SearchParticipant from './pages/SearchParticipant';
+import AddToProgram from './pages/AddToProgram';
+import ParticipantProfile from './pages/ParticipantProfile';
+import EditParticipant from './pages/EditParticipant';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Training from './pages/Training';
@@ -63,6 +67,10 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
   
+  if (user?.role === 'staff') {
+    return <Navigate to="/volunteer-dashboard" replace />;
+  }
+  
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -82,6 +90,9 @@ function LoginRoute() {
   }
   
   if (isAuthenticated) {
+    if (user?.role === 'staff') {
+      return <Navigate to="/volunteer-dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -109,6 +120,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/volunteer-dashboard',
+        element: (
+          <ProtectedRoute>
+            <VolunteerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/add-participant',
         element: (
           <ProtectedRoute>
@@ -129,6 +148,30 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <SearchParticipant />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/add-to-program',
+        element: (
+          <ProtectedRoute>
+            <AddToProgram />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/participant/:id',
+        element: (
+          <ProtectedRoute>
+            <ParticipantProfile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/participant/:id/edit',
+        element: (
+          <ProtectedRoute>
+            <EditParticipant />
           </ProtectedRoute>
         ),
       },

@@ -190,8 +190,8 @@ export default function Approvals() {
                               user.role === 'admin'
                                 ? 'bg-red-100 text-red-800'
                                 : user.role === 'manager'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-purple-100 text-purple-800'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
                             }`}
                           >
                             <User size={16} />
@@ -210,18 +210,18 @@ export default function Approvals() {
                       <p className="text-base text-gray-700">
                         {user.role === 'admin' ? (
                           <>
-                            <strong>Admin Access:</strong> Full system access including user approvals, 
-                            program management, reports, and all features.
+                            <strong>Admin Access:</strong> Full access to all features including user management,
+                            program creation/editing, participant registration, and attendance tracking.
                           </>
                         ) : user.role === 'manager' ? (
                           <>
-                            <strong>Manager Access:</strong> Can register participants, add to programs,
-                            and mark attendance for all programs.
+                            <strong>Manager Access:</strong> Can register participants and add them to programs.
+                            Cannot manage programs or change user roles.
                           </>
                         ) : (
                           <>
-                            <strong>Staff Access:</strong> Limited access to mark attendance for assigned
-                            programs and view training materials.
+                            <strong>Staff Access:</strong> Limited access to mark attendance for assigned programs
+                            and view training materials only.
                           </>
                         )}
                       </p>

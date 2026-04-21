@@ -27,47 +27,25 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL,
-  staff_type TEXT,
   full_name TEXT NOT NULL,
   approved BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add staff_type column if it doesn't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'staff_type'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN staff_type TEXT;
-    RAISE NOTICE 'Added staff_type column to profiles';
-  END IF;
-END $$;
-
 -- Migration: Drop old role constraint if it exists and add new one
-DO $$
+DO $$ 
 BEGIN
   -- Drop the existing constraint if it exists
   ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
   RAISE NOTICE 'Dropped old role constraint (if it existed)';
-
+  
   -- Add new CHECK constraint with the three new roles
-  ALTER TABLE profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('Program Coordinator', 'Data Entry', 'Manager/Administrator'));
-  RAISE NOTICE 'Added new role constraint for Program Coordinator, Data Entry, Manager/Administrator';
-
-  -- Drop the existing staff_type constraint if it exists
-  ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_staff_type_check;
-
-  -- Add CHECK constraint for staff_type
-  ALTER TABLE profiles ADD CONSTRAINT profiles_staff_type_check CHECK (staff_type IN ('Employee', 'Volunteer'));
-  RAISE NOTICE 'Added staff_type constraint for Employee, Volunteer';
-
-  -- Update existing users to new role structure (migration from old system)
-  UPDATE profiles SET role = 'Manager/Administrator', staff_type = 'Employee' WHERE role = 'admin';
-  UPDATE profiles SET role = 'Manager/Administrator', staff_type = 'Employee' WHERE role = 'manager';
-  UPDATE profiles SET role = 'Program Coordinator', staff_type = 'Employee' WHERE role = 'staff';
-  RAISE NOTICE 'Migrated existing users to new role structure';
+  ALTER TABLE profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('staff', 'manager', 'admin'));
+  RAISE NOTICE 'Added new role constraint for staff, manager, admin';
+  
+  -- Update existing volunteer users to staff (migration from old system)
+  UPDATE profiles SET role = 'staff' WHERE role = 'volunteer';
+  RAISE NOTICE 'Migrated volunteer users to staff role';
 END $$;
 
 -- Enable Row Level Security for profiles
@@ -132,7 +110,7 @@ BEGIN
   VALUES (
     new.id,
     new.email,
-    COALESCE(new.raw_user_meta_data->>'role', 'volunteer'),
+    COALESCE(new.raw_user_meta_data->>'role', 'staff'),
     COALESCE(new.raw_user_meta_data->>'full_name', new.email)
   );
   RETURN new;
@@ -183,12 +161,36 @@ DO $$
 BEGIN
   -- Add gender column
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'participants' AND column_name = 'gender'
   ) THEN
     ALTER TABLE participants ADD COLUMN gender TEXT NOT NULL DEFAULT 'Prefer not to say';
     -- Remove default after adding the column so new inserts require it
     ALTER TABLE participants ALTER COLUMN gender DROP DEFAULT;
+  END IF;
+
+  -- Add home_tel column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'home_tel'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN home_tel TEXT;
+  END IF;
+
+  -- Add title column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'title'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN title TEXT;
+  END IF;
+
+  -- Add lgbti_community column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'lgbti_community'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN lgbti_community TEXT;
   END IF;
 
   -- Add township column
@@ -334,45 +336,67 @@ CREATE TABLE IF NOT EXISTS programs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  category TEXT,
-  days TEXT[] NOT NULL DEFAULT '{}', -- Array of days (empty for one-time events)
+  days TEXT[] NOT NULL DEFAULT '{}', -- Array of days (empty for monthly events)
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
   capacity INTEGER DEFAULT 20,
-  recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'one-time')),
-  event_date DATE, -- Date for one-time events
+  recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly')),
+  event_date DATE, -- DEPRECATED: kept for backward compatibility
+  start_date DATE, -- Start date for program tracking
+  week_of_month INTEGER, -- For monthly events: 1-4 for 1st/2nd/3rd/4th week
+  day_of_week TEXT, -- For monthly events: day of the week
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add columns to programs table if they don't exist
-DO $$ 
+-- Add recurrence_type column to programs table if it doesn't exist
+DO $$
 BEGIN
-  -- Add category column
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'programs' AND column_name = 'category'
-  ) THEN
-    ALTER TABLE programs ADD COLUMN category TEXT;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'recurrence_type'
   ) THEN
-    ALTER TABLE programs ADD COLUMN recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'one-time'));
+    ALTER TABLE programs ADD COLUMN recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly'));
+  ELSE
+    -- Update existing constraint to replace 'one-time' with 'monthly'
+    ALTER TABLE programs DROP CONSTRAINT IF EXISTS programs_recurrence_type_check;
+    ALTER TABLE programs ADD CONSTRAINT programs_recurrence_type_check CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly'));
   END IF;
-  
-  -- Add event_date column for one-time events
+
+  -- Add event_date column (deprecated, kept for backward compatibility)
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'event_date'
   ) THEN
     ALTER TABLE programs ADD COLUMN event_date DATE;
   END IF;
-  
-  -- Make days nullable/optional for one-time events
+
+  -- Add start_date column for program tracking
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'start_date'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN start_date DATE;
+  END IF;
+
+  -- Add week_of_month column for monthly events
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'week_of_month'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN week_of_month INTEGER;
+  END IF;
+
+  -- Add day_of_week column for monthly events
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'day_of_week'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN day_of_week TEXT;
+  END IF;
+
+  -- Make days nullable/optional for monthly events
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'days' AND is_nullable = 'NO'
   ) THEN
     ALTER TABLE programs ALTER COLUMN days DROP NOT NULL;
@@ -540,6 +564,9 @@ COMMENT ON COLUMN participants.township_other IS 'Custom township name if Other 
 COMMENT ON COLUMN participants.postal_address_line1 IS 'Postal address line 1 (if different from home address)';
 COMMENT ON COLUMN participants.postal_address_line2 IS 'Postal address line 2 (if different from home address)';
 COMMENT ON COLUMN participants.postal_postcode IS 'Postal postcode (if different from home postcode)';
+COMMENT ON COLUMN participants.home_tel IS 'Home telephone number (optional)';
+COMMENT ON COLUMN participants.title IS 'Participant title (Mr, Mrs, Ms, Miss, Dr, Other)';
+COMMENT ON COLUMN participants.lgbti_community IS 'LGBTI+ community member identification (Yes, No, Prefer not to say)';
 COMMENT ON COLUMN participants.receive_newsletter IS 'Whether participant wants to receive newsletters';
 COMMENT ON COLUMN participants.receive_course_notifications IS 'Whether participant wants to receive course/program notifications';
 COMMENT ON COLUMN participants.emergency_contact_address IS 'Emergency contact full address';
@@ -567,3 +594,51 @@ COMMENT ON COLUMN program_staff.id IS 'Unique identifier for the assignment';
 COMMENT ON COLUMN program_staff.program_id IS 'Reference to the program';
 COMMENT ON COLUMN program_staff.user_id IS 'Reference to the staff user';
 COMMENT ON COLUMN program_staff.assigned_at IS 'Timestamp when the assignment was created';
+
+-- ============================================
+-- DEFAULT PROGRAMS
+-- ============================================
+
+-- Insert default programs for The Hut Community Centre
+-- These are organized into three categories:
+-- 1. Children's Programs (purple theme)
+-- 2. Fitness & Wellbeing Programs (orange theme)
+-- 3. General Programs (green theme)
+
+-- Insert sample programs ONLY if the programs table is empty (prevents duplicates on re-runs)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM programs LIMIT 1) THEN
+    -- Children's Programs
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Outdoor Playgroup', 'A fun outdoor playgroup for young children to explore, play, and socialize in nature. Parent/guardian supervision required.', ARRAY['Tuesday', 'Thursday'], '09:30', '11:30', 15, 'weekly'),
+      ('Homework Club', 'After-school homework support and tutoring for primary and secondary students. Trained volunteers provide assistance with assignments and study skills.', ARRAY['Monday', 'Wednesday', 'Friday'], '15:30', '17:00', 20, 'weekly'),
+      ('Dungeons & Dragons', 'An exciting tabletop role-playing game for teens and young adults. Develop creativity, teamwork, and problem-solving skills in epic adventures.', ARRAY['Saturday'], '14:00', '17:00', 12, 'weekly'),
+      ('Intergenerational Mentoring', 'A unique program connecting young people with senior community members for mutual learning, skill-sharing, and friendship building.', ARRAY['Thursday'], '10:00', '12:00', 16, 'fortnightly');
+
+    -- Fitness & Wellbeing Programs
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Community Fun Fitness', 'Low-impact group fitness classes suitable for all ages and abilities. Includes stretching, cardio, and strength exercises in a supportive environment.', ARRAY['Monday', 'Wednesday', 'Friday'], '09:00', '10:00', 25, 'weekly'),
+      ('Strength & Balance (Stirling)', 'Specialized exercises for seniors focusing on improving strength, balance, and mobility to prevent falls and maintain independence.', ARRAY['Tuesday', 'Thursday'], '10:30', '11:30', 20, 'weekly'),
+      ('Chi Kung', 'Traditional Chinese gentle exercise combining movement, meditation, and breathing techniques. Great for reducing stress and improving wellbeing.', ARRAY['Wednesday'], '08:00', '09:00', 18, 'weekly'),
+      ('Walking Group', 'Join fellow community members for scenic walks through local trails and parks. All fitness levels welcome. Morning tea provided.', ARRAY['Friday'], '08:30', '10:00', 30, 'weekly'),
+      ('Men''s Moves', 'A health and wellbeing program specifically designed for men, focusing on fitness, mental health, and social connection.', ARRAY['Saturday'], '09:00', '11:00', 20, 'weekly');
+
+    -- General Programs (examples - add more as needed)
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Art Workshop', 'Explore various art techniques including painting, drawing, and mixed media. All materials provided. Suitable for beginners to advanced.', ARRAY['Tuesday'], '13:00', '15:30', 15, 'weekly'),
+      ('Community Lunch', 'Share a nutritious meal with neighbors and make new friends. Different cultural cuisines featured each week. Gold coin donation.', ARRAY['Wednesday'], '12:00', '14:00', 40, 'weekly'),
+      ('Digital Skills Class', 'Learn essential computer and smartphone skills including email, internet safety, social media, and online services. Bring your own device.', ARRAY['Thursday'], '14:00', '16:00', 12, 'weekly'),
+      ('Gardening Club', 'Work together to maintain The Hut''s community garden. Learn sustainable gardening practices and take home fresh produce.', ARRAY['Saturday'], '09:00', '11:00', 15, 'weekly');
+
+    RAISE NOTICE 'Sample programs inserted successfully';
+  ELSE
+    RAISE NOTICE 'Programs table already contains data - skipping sample data insertion';
+  END IF;
+END $$;
+
+-- Add helpful comment
+COMMENT ON TABLE programs IS 'Stores program information. Default programs include Children''s Programs, Fitness & Wellbeing Programs, and General Programs.';

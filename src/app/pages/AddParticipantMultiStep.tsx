@@ -26,10 +26,12 @@ export default function AddParticipantMultiStep() {
   
   const [formData, setFormData] = useState({
     // Personal Information
+    title: '',
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
+    homeTel: '',
     gender: '',
     genderOther: '',
     dobMonth: '',
@@ -108,22 +110,22 @@ export default function AddParticipantMultiStep() {
     }));
   };
 
-  const handleProgramDataChange = (programName: string, field: string, value: any) => {
+  const handleProgramDataChange = (categoryKey: string, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       programSpecificData: {
         ...prev.programSpecificData,
-        [programName]: {
-          ...(prev.programSpecificData[programName] || {}),
+        [categoryKey]: {
+          ...(prev.programSpecificData[categoryKey] || {}),
           [field]: value
         }
       }
     }));
   };
 
-  const validateStep = (step: number): boolean => {
+  const validateStep = async (step: number): Promise<boolean> => {
     setError('');
-    
+
     if (step === 1) {
       // Validate general information
       if (!formData.firstName || !formData.lastName) {
@@ -163,7 +165,7 @@ export default function AddParticipantMultiStep() {
         return false;
       }
     }
-    
+
     if (step === 2) {
       // Validate program selection
       if (formData.selectedPrograms.length === 0) {
@@ -173,64 +175,131 @@ export default function AddParticipantMultiStep() {
     }
 
     if (step === 3) {
-      // Validate program-specific data
-      // Check if any programs with special requirements are selected and need data
-      const programsNeedingData = formData.selectedPrograms.filter(programId => {
-        // Programs that need specific information (using program IDs)
-        const programsWithRequirements = [
-          'chi-kung',
-          'outdoor-playgroup',
-          'dungeons-dragons',
-          'homework-club',
-          'strength-balance-stirling',
-          'community-fun-fitness',
-          'mens-moves',
-          'community-shed',
-          'walking-group'
-        ];
-        return programsWithRequirements.includes(programId);
-      });
+      // Fetch program names to validate properly
+      const { data: programsData, error: programsError } = await supabase
+        .from('programs')
+        .select('id, name')
+        .in('id', formData.selectedPrograms);
 
-      // If there are programs that need data, validate them
-      if (programsNeedingData.length > 0) {
-        // For each program that needs data, check if required fields are filled
-        for (const programId of programsNeedingData) {
-          const data = formData.programSpecificData[programId];
-          
-          // Check if data exists and has meaningful content
-          if (!data) {
-            setError(`Please fill in the required information for this program`);
-            return false;
-          }
+      if (programsError) {
+        console.error('Error fetching programs for validation:', programsError);
+        setError('Unable to validate program data. Please try again.');
+        return false;
+      }
 
-          // Count non-empty fields
-          const filledFields = Object.entries(data).filter(([key, value]) => {
-            if (value === null || value === undefined || value === '') return false;
-            if (typeof value === 'boolean' && value === false) return false;
-            return true;
-          });
+      // Define which programs require children-specific data
+      const childrenProgramNames = [
+        'Outdoor Playgroup',
+        'Homework Club',
+        'Dungeons & Dragons',
+        'Intergenerational Mentoring'
+      ];
 
-          // Require at least one meaningful field to be filled
-          if (filledFields.length === 0) {
-            setError(`Please fill in the required information for this program`);
-            return false;
-          }
+      // Define which programs require fitness/health data
+      const fitnessProgramNames = [
+        'Community Fun Fitness',
+        'Strength & Balance (Stirling)',
+        'Chi Kung',
+        'Walking Group',
+        "Men's Moves"
+      ];
+
+      // Check if any selected programs are children's programs
+      const hasChildrenPrograms = (programsData || []).some(prog =>
+        childrenProgramNames.includes(prog.name)
+      );
+
+      // Check if any selected programs are fitness programs
+      const hasFitnessPrograms = (programsData || []).some(prog =>
+        fitnessProgramNames.includes(prog.name)
+      );
+
+      // Validate children's category data if needed
+      if (hasChildrenPrograms) {
+        const data = formData.programSpecificData['children'];
+
+        if (!data) {
+          setError('Please fill in the required information for children\'s programs');
+          return false;
+        }
+
+        if (!data.childGivenName || !data.childFamilyName) {
+          setError('Please enter the child\'s given name and family name');
+          return false;
+        }
+        if (!data.childGender) {
+          setError('Please select the child\'s gender');
+          return false;
+        }
+        if (!data.childDOB) {
+          setError('Please enter the child\'s date of birth');
+          return false;
+        }
+        if (!data.childAboriginalTSI) {
+          setError('Please answer the Aboriginal or Torres Strait Islander question');
+          return false;
+        }
+        // Check if at least one photo consent option is selected or none
+        const hasPhotoConsent = data.childPhotoConsentWebsite || data.childPhotoConsentSocialMedia ||
+                                data.childPhotoConsentAnnualReport || data.childPhotoConsentBrochures ||
+                                data.childPhotoConsentLocalMedia;
+        // Allow submission even if no consent is given (they can choose none)
+
+        if (!data.authorisedPerson1Name || !data.authorisedPerson1Phone) {
+          setError('Please provide at least one authorised person to collect the child');
+          return false;
+        }
+        if (!data.custodyIssues) {
+          setError('Please answer whether there are any custody issues');
+          return false;
+        }
+        if (!data.ownWayHomePermission) {
+          setError('Please indicate permission for child to make own way home');
+          return false;
+        }
+        if (!data.schoolAttending) {
+          setError('Please enter the school the child is attending');
+          return false;
+        }
+        if (!data.yearLevel) {
+          setError('Please select the child\'s year level');
+          return false;
         }
       }
 
-      // If user selected ONLY programs without special requirements, 
-      // remind them they're on the final step
-      if (programsNeedingData.length === 0 && formData.selectedPrograms.length > 0) {
-        // This is okay - programs without special requirements don't need extra data
-        return true;
+      // Validate fitness category data if needed
+      if (hasFitnessPrograms) {
+        const data = formData.programSpecificData['fitness'];
+
+        if (!data) {
+          setError('Please fill in the required health information for fitness programs');
+          return false;
+        }
+
+        if (!data.healthConditions || data.healthConditions.length === 0) {
+          setError('Please select health conditions (or check none apply)');
+          return false;
+        }
+        if (!data.regularExercise) {
+          setError('Please indicate your regular exercise level');
+          return false;
+        }
+        if (!data.medicalProcedures) {
+          setError('Please provide information about medical procedures');
+          return false;
+        }
+        if (!data.medicalTreatmentAcknowledged) {
+          setError('Please acknowledge the medical treatment policy');
+          return false;
+        }
       }
     }
-    
+
     return true;
   };
 
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
+  const nextStep = async () => {
+    if (await validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
   };
@@ -242,19 +311,47 @@ export default function AddParticipantMultiStep() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     // Validate Step 3 before submitting
-    if (!validateStep(3)) {
+    if (!(await validateStep(3))) {
       return;
     }
-    
+
     setError('');
     setLoading(true);
     
     try {
       // Construct date of birth
       const dateOfBirth = `${formData.dobYear}-${formData.dobMonth}-${formData.dobDay.padStart(2, '0')}`;
-      
+
+      // Calculate age and age range
+      const calculateAge = (dobDay: string, dobMonth: string, dobYear: string): number => {
+        const birthDate = new Date(parseInt(dobYear), parseInt(dobMonth) - 1, parseInt(dobDay));
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age;
+      };
+
+      const getAgeRange = (age: number): string => {
+        if (age < 5) return '0-4';
+        if (age < 12) return '5-11';
+        if (age < 18) return '12-17';
+        if (age < 25) return '18-24';
+        if (age < 35) return '25-34';
+        if (age < 45) return '35-44';
+        if (age < 55) return '45-54';
+        if (age < 65) return '55-64';
+        if (age < 75) return '65-74';
+        return '75+';
+      };
+
+      const participantAge = calculateAge(formData.dobDay, formData.dobMonth, formData.dobYear);
+      const participantAgeRange = getAgeRange(participantAge);
+
       // Build referral sources array
       const referralSources = [];
       if (formData.referralBrochure) referralSources.push('Brochure');
@@ -283,11 +380,13 @@ export default function AddParticipantMultiStep() {
 
       // Insert participant - only include fields that exist in the database
       const participantInsert: any = {
+        title: formData.title || null,
         first_name: formData.firstName,
         last_name: formData.lastName,
         gender: finalGender,
         email: formData.email,
         phone: formData.phone,
+        home_tel: formData.homeTel || null,
         date_of_birth: dateOfBirth,
         address_line1: formData.addressLine1,
         address_line2: formData.addressLine2 || null,
@@ -296,6 +395,11 @@ export default function AddParticipantMultiStep() {
         emergency_contact_name: `${formData.emergencyContactFirstName} ${formData.emergencyContactLastName}`,
         emergency_contact_phone: formData.emergencyContactPhone,
       };
+
+      // Note: Age and age_range are calculated but not stored in the database
+      // They can be calculated on-demand from date_of_birth
+      // If needed in the future, add these columns to the database schema first
+      console.log('Calculated age:', participantAge, 'Age range:', participantAgeRange);
 
       // Add optional fields that may not exist in older schemas
       const optionalFields = {
@@ -314,10 +418,16 @@ export default function AddParticipantMultiStep() {
         country_of_birth: formData.countryOfBirth || null,
         cultural_identity: formData.culturalIdentity || null,
         cultural_identity_details: formData.culturalIdentityDetails || null,
+        lgbti_community: formData.lgbtiCommunity || null,
         referral_sources: JSON.stringify(referralSources),
         photo_consent: JSON.stringify(photoConsent),
         program_specific_data: JSON.stringify(formData.programSpecificData)
       };
+
+      // Age and age_range are calculated for display purposes but NOT stored in database
+      // To store them, you would need to add these columns to your participants table first:
+      // ALTER TABLE participants ADD COLUMN age INTEGER;
+      // ALTER TABLE participants ADD COLUMN age_range TEXT;
 
       // Try to add optional fields, but don't fail if they don't exist
       Object.assign(participantInsert, optionalFields);
@@ -332,37 +442,11 @@ export default function AddParticipantMultiStep() {
       if (supabaseError) throw supabaseError;
 
       // Enroll participant in selected programs
-      // Convert program IDs to program names for database lookup
-      const programIdToName: Record<string, string> = {
-        'outdoor-playgroup': 'Outdoor Playgroup',
-        'out-and-about': 'Out & About',
-        'dungeons-dragons': 'Dungeons & Dragons',
-        'workshop-companion-animal': 'Workshop (Companion Animal)',
-        'strength-balance-stirling': 'Strength & Balance (Stirling)',
-        'music-makers': 'Music Makers',
-        'chi-kung': 'Chi Kung',
-        'community-fun-fitness': 'Community Fun & Fitness (Bridgewater Hall)',
-        'mens-moves': "Men's Moves",
-        'homework-club': 'Homework Club',
-        'community-shed': 'Community Shed Membership',
-        'walking-group': 'Walking Group'
-      };
-
-      const programNames = formData.selectedPrograms.map(id => programIdToName[id] || id);
-
-      // Fetch program records for the selected program names
-      const { data: programsData, error: programsError } = await supabase
-        .from('programs')
-        .select('id, name')
-        .in('name', programNames);
-
-      if (programsError) throw programsError;
-
-      if (programsData && programsData.length > 0) {
-        // Create enrollment records
-        const programEnrollments = programsData.map(program => ({
+      if (formData.selectedPrograms.length > 0) {
+        // Create enrollment records using the program IDs directly
+        const programEnrollments = formData.selectedPrograms.map(programId => ({
           participant_id: participantData.id,
-          program_id: program.id
+          program_id: programId
         }));
 
         // Insert enrollments into database
@@ -370,9 +454,12 @@ export default function AddParticipantMultiStep() {
           .from('program_enrollments')
           .insert(programEnrollments);
 
-        if (enrollmentError) throw enrollmentError;
+        if (enrollmentError) {
+          console.error('Error enrolling participant in programs:', enrollmentError);
+          throw enrollmentError;
+        }
 
-        console.log('Participant enrolled in programs:', programsData.map(p => p.name).join(', '));
+        console.log('Participant enrolled in', formData.selectedPrograms.length, 'programs');
       }
       
       console.log('New participant added:', participantData);

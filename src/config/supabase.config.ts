@@ -4,10 +4,11 @@
 
 export const supabaseConfig = {
   // Your Supabase project URL (e.g., https://xxxxxxxxxxxxx.supabase.co)
-  url: 'https://jqqhwjyzmrqvhkedekyd.supabase.co',
-  
+  url: "https://ioxirmmzmjhafsvdggjr.supabase.co",
+
   // Your Supabase anon/public key
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxcWh3anl6bXJxdmhrZWRla3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjMzOTQsImV4cCI6MjA4OTM5OTM5NH0.l4ZPa6i8LX29QkoTrVGnbdT0_GVAVc8SRVNehbscGZA'
+  anonKey:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlveGlybW16bWpoYWZzdmRnZ2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjEwMDEsImV4cCI6MjA5MjMzNzAwMX0.lqZnmk_ehfOH92SZdsMj3Y1SlGZuSaih93nkgJsVI80",
 };
 
 // Instructions:

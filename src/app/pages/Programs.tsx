@@ -12,7 +12,10 @@ interface Program {
   end_time: string;
   capacity: number;
   recurrence_type: string;
-  event_date?: string;
+  event_date?: string; // DEPRECATED: kept for backward compatibility
+  start_date?: string;
+  week_of_month?: number;
+  day_of_week?: string;
   created_at: string;
 }
 
@@ -58,7 +61,12 @@ export default function Programs() {
     recurrence_type: 'weekly',
     event_date_month: '',
     event_date_day: '',
-    event_date_year: ''
+    event_date_year: '',
+    start_date_month: '',
+    start_date_day: '',
+    start_date_year: '',
+    week_of_month: '',
+    day_of_week: ''
   });
 
   useEffect(() => {
@@ -170,9 +178,9 @@ export default function Programs() {
       return;
     }
 
-    if (formData.recurrence_type === 'one-time') {
-      if (!formData.event_date_month || !formData.event_date_day || !formData.event_date_year) {
-        alert('Please select an event date for the one-time event');
+    if (formData.recurrence_type === 'monthly') {
+      if (!formData.week_of_month || !formData.day_of_week) {
+        alert('Please select the week and day for the monthly event');
         return;
       }
     } else {
@@ -187,6 +195,11 @@ export default function Programs() {
       return;
     }
 
+    if (!formData.start_date_month || !formData.start_date_day || !formData.start_date_year) {
+      alert('Please select a start date for the program');
+      return;
+    }
+
     try {
       const programData: any = {
         name: formData.name,
@@ -194,20 +207,15 @@ export default function Programs() {
         start_time: formData.start_time,
         end_time: formData.end_time,
         capacity: formData.capacity,
+        recurrence_type: formData.recurrence_type,
+        start_date: `${formData.start_date_year}-${formData.start_date_month.padStart(2, '0')}-${formData.start_date_day.padStart(2, '0')}`,
       };
 
-      // Only add recurrence_type and event_date if they're supported
-      try {
-        programData.recurrence_type = formData.recurrence_type;
-        
-        if (formData.recurrence_type === 'one-time') {
-          programData.event_date = `${formData.event_date_year}-${formData.event_date_month.padStart(2, '0')}-${formData.event_date_day.padStart(2, '0')}`;
-          programData.days = [];
-        } else {
-          programData.days = formData.days;
-        }
-      } catch (e) {
-        // Fallback to basic program structure if new columns don't exist
+      if (formData.recurrence_type === 'monthly') {
+        programData.week_of_month = parseInt(formData.week_of_month);
+        programData.day_of_week = formData.day_of_week;
+        programData.days = [];
+      } else {
         programData.days = formData.days;
       }
 
@@ -216,10 +224,6 @@ export default function Programs() {
         .insert([programData]);
 
       if (error) {
-        // Check if error is due to missing columns
-        if (error.message.includes('event_date') || error.message.includes('recurrence_type')) {
-          throw new Error('Database schema needs to be updated. Please run the update-programs-schema.sql file in your Supabase SQL Editor.');
-        }
         throw error;
       }
 
@@ -241,9 +245,9 @@ export default function Programs() {
       return;
     }
 
-    if (formData.recurrence_type === 'one-time') {
-      if (!formData.event_date_month || !formData.event_date_day || !formData.event_date_year) {
-        alert('Please select an event date for the one-time event');
+    if (formData.recurrence_type === 'monthly') {
+      if (!formData.week_of_month || !formData.day_of_week) {
+        alert('Please select the week and day for the monthly event');
         return;
       }
     } else {
@@ -258,6 +262,11 @@ export default function Programs() {
       return;
     }
 
+    if (!formData.start_date_month || !formData.start_date_day || !formData.start_date_year) {
+      alert('Please select a start date for the program');
+      return;
+    }
+
     try {
       const programData: any = {
         name: formData.name,
@@ -265,20 +274,15 @@ export default function Programs() {
         start_time: formData.start_time,
         end_time: formData.end_time,
         capacity: formData.capacity,
+        recurrence_type: formData.recurrence_type,
+        start_date: `${formData.start_date_year}-${formData.start_date_month.padStart(2, '0')}-${formData.start_date_day.padStart(2, '0')}`,
       };
 
-      // Only add recurrence_type and event_date if they're supported
-      try {
-        programData.recurrence_type = formData.recurrence_type;
-        
-        if (formData.recurrence_type === 'one-time') {
-          programData.event_date = `${formData.event_date_year}-${formData.event_date_month.padStart(2, '0')}-${formData.event_date_day.padStart(2, '0')}`;
-          programData.days = [];
-        } else {
-          programData.days = formData.days;
-        }
-      } catch (e) {
-        // Fallback to basic program structure if new columns don't exist
+      if (formData.recurrence_type === 'monthly') {
+        programData.week_of_month = parseInt(formData.week_of_month);
+        programData.day_of_week = formData.day_of_week;
+        programData.days = [];
+      } else {
         programData.days = formData.days;
       }
 
@@ -288,10 +292,6 @@ export default function Programs() {
         .eq('id', selectedProgram.id);
 
       if (error) {
-        // Check if error is due to missing columns
-        if (error.message.includes('event_date') || error.message.includes('recurrence_type')) {
-          throw new Error('Database schema needs to be updated. Please run the update-programs-schema.sql file in your Supabase SQL Editor.');
-        }
         throw error;
       }
 
@@ -391,7 +391,12 @@ export default function Programs() {
       recurrence_type: program.recurrence_type || 'weekly',
       event_date_month: '',
       event_date_day: '',
-      event_date_year: ''
+      event_date_year: '',
+      start_date_month: '',
+      start_date_day: '',
+      start_date_year: '',
+      week_of_month: program.week_of_month?.toString() || '',
+      day_of_week: program.day_of_week || ''
     };
 
     if (program.event_date) {
@@ -399,6 +404,13 @@ export default function Programs() {
       formDataUpdate.event_date_year = parts[0];
       formDataUpdate.event_date_month = parts[1];
       formDataUpdate.event_date_day = parts[2];
+    }
+
+    if (program.start_date) {
+      const parts = program.start_date.split('-');
+      formDataUpdate.start_date_year = parts[0];
+      formDataUpdate.start_date_month = parts[1];
+      formDataUpdate.start_date_day = parts[2];
     }
 
     setFormData(formDataUpdate);
@@ -421,7 +433,12 @@ export default function Programs() {
       recurrence_type: 'weekly',
       event_date_month: '',
       event_date_day: '',
-      event_date_year: ''
+      event_date_year: '',
+      start_date_month: '',
+      start_date_day: '',
+      start_date_year: '',
+      week_of_month: '',
+      day_of_week: ''
     });
   };
 
@@ -533,85 +550,164 @@ export default function Programs() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {programs.map(program => {
-              const remaining = program.capacity - (program.enrollment_count || 0);
-              return (
-                <div key={program.id} className="bg-white p-6 rounded-2xl border-4 border-gray-200 shadow-md hover:shadow-xl transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-2xl font-bold text-gray-900">{program.name}</h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEditModal(program)}
-                        className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-                        title="Edit program"
-                      >
-                        <Edit2 size={20} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProgram(program.id, program.name)}
-                        className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-                        title="Delete program"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  </div>
+          <div className="space-y-8">
+            {/* Categorize programs */}
+            {(() => {
+              const childrenProgramNames = [
+                'Outdoor Playgroup',
+                'Homework Club',
+                'Dungeons & Dragons',
+                'Intergenerational Mentoring'
+              ];
 
-                  <p className="text-gray-700 mb-4">{program.description || 'No description'}</p>
+              const fitnessProgramNames = [
+                'Community Fun Fitness',
+                'Strength & Balance (Stirling)',
+                'Chi Kung',
+                'Walking Group',
+                "Men's Moves"
+              ];
 
-                  <div className="space-y-3">
-                    {program.recurrence_type === 'one-time' && program.event_date ? (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar size={18} className="text-purple-600" />
-                        <span className="text-sm font-semibold">
-                          {new Date(program.event_date).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar size={18} className="text-purple-600" />
-                        <span className="text-sm font-semibold">
-                          {program.recurrence_type === 'fortnightly' ? 'Fortnightly: ' : ''}
-                          {program.days?.join(', ') || 'No days set'}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock size={18} className="text-blue-600" />
-                      <span className="text-sm font-semibold">
-                        {program.start_time} - {program.end_time}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Users size={18} className="text-green-600" />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold">Capacity: {program.capacity}</span>
-                        <span className="text-sm font-semibold text-blue-700">
-                          Remaining: {remaining} {remaining === 0 && '(Full)'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t-2 border-gray-200">
-                      <button
-                        onClick={() => openStaffModal(program)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold transition-colors"
-                      >
-                        <Users size={18} />
-                        Manage Staff ({(programStaff[program.id] || []).length})
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              const childrenPrograms = programs.filter(p => childrenProgramNames.includes(p.name));
+              const fitnessPrograms = programs.filter(p => fitnessProgramNames.includes(p.name));
+              const categorizedNames = [...childrenProgramNames, ...fitnessProgramNames];
+              const genericPrograms = programs.filter(p =>
+                !categorizedNames.includes(p.name)
               );
-            })}
+
+              const renderProgramCard = (program: ProgramWithEnrollment) => {
+                const remaining = program.capacity - (program.enrollment_count || 0);
+                return (
+                  <div key={program.id} className="bg-white p-6 rounded-2xl border-4 border-gray-200 shadow-md hover:shadow-xl transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-2xl font-bold text-gray-900">{program.name}</h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEditModal(program)}
+                          className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                          title="Edit program"
+                        >
+                          <Edit2 size={20} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProgram(program.id, program.name)}
+                          className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                          title="Delete program"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-700 mb-4">{program.description || 'No description'}</p>
+
+                    <div className="space-y-3">
+                      {program.recurrence_type === 'monthly' ? (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Calendar size={18} className="text-purple-600" />
+                          <span className="text-sm font-semibold">
+                            {program.week_of_month && program.day_of_week
+                              ? `Every ${['1st', '2nd', '3rd', '4th'][program.week_of_month - 1]} ${program.day_of_week} of the month`
+                              : 'Monthly (schedule not set)'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Calendar size={18} className="text-purple-600" />
+                          <span className="text-sm font-semibold">
+                            {program.recurrence_type === 'fortnightly' ? 'Fortnightly: ' : ''}
+                            {program.days?.join(', ') || 'No days set'}
+                          </span>
+                        </div>
+                      )}
+
+                      {program.start_date && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Calendar size={18} className="text-green-600" />
+                          <span className="text-sm font-semibold">
+                            Starts: {new Date(program.start_date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Clock size={18} className="text-blue-600" />
+                        <span className="text-sm font-semibold">
+                          {program.start_time} - {program.end_time}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Users size={18} className="text-green-600" />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold">Capacity: {program.capacity}</span>
+                          <span className="text-sm font-semibold text-blue-700">
+                            Remaining: {remaining} {remaining === 0 && '(Full)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t-2 border-gray-200">
+                        <button
+                          onClick={() => openStaffModal(program)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold transition-colors"
+                        >
+                          <Users size={18} />
+                          Manage Staff ({(programStaff[program.id] || []).length})
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              };
+
+              return (
+                <>
+                  {/* Children's Programs Section */}
+                  {childrenPrograms.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="bg-purple-100 p-4 rounded-lg border-2 border-purple-300">
+                        <h4 className="text-2xl font-bold text-purple-900">Children's Programs</h4>
+                        <p className="text-sm text-purple-700 mt-1">Programs designed for children and families</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {childrenPrograms.map(program => renderProgramCard(program))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fitness Programs Section */}
+                  {fitnessPrograms.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="bg-orange-100 p-4 rounded-lg border-2 border-orange-300">
+                        <h4 className="text-2xl font-bold text-orange-900">Fitness & Wellbeing Programs</h4>
+                        <p className="text-sm text-orange-700 mt-1">Physical activity and health programs</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {fitnessPrograms.map(program => renderProgramCard(program))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generic Programs Section */}
+                  {genericPrograms.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="bg-green-100 p-4 rounded-lg border-2 border-green-300">
+                        <h4 className="text-2xl font-bold text-green-900">General Programs</h4>
+                        <p className="text-sm text-green-700 mt-1">Community activities and workshops</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {genericPrograms.map(program => renderProgramCard(program))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -620,7 +716,7 @@ export default function Programs() {
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
             <div className="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
               <h3 className="text-3xl font-bold text-gray-900 mb-6">Add New Program</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-lg font-bold text-gray-700 mb-2">
@@ -659,11 +755,96 @@ export default function Programs() {
                   >
                     <option value="weekly">Weekly</option>
                     <option value="fortnightly">Fortnightly</option>
-                    <option value="one-time">One-Time Event</option>
+                    <option value="monthly">Monthly</option>
                   </select>
                 </div>
 
-                {formData.recurrence_type !== 'one-time' ? (
+                <div>
+                  <label className="block text-lg font-bold text-gray-700 mb-2">
+                    Start Date <span className="text-red-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Month</label>
+                      <select
+                        value={formData.start_date_month}
+                        onChange={(e) => setFormData({ ...formData, start_date_month: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {monthOptions.map(month => (
+                          <option key={month.value} value={month.value}>{month.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Day</label>
+                      <select
+                        value={formData.start_date_day}
+                        onChange={(e) => setFormData({ ...formData, start_date_day: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {dayOptions.map(day => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Year</label>
+                      <select
+                        value={formData.start_date_year}
+                        onChange={(e) => setFormData({ ...formData, start_date_year: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {yearOptions.map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {formData.recurrence_type === 'monthly' ? (
+                  <div>
+                    <label className="block text-lg font-bold text-gray-700 mb-2">
+                      Monthly Schedule <span className="text-red-600">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">Week of Month</label>
+                        <select
+                          value={formData.week_of_month}
+                          onChange={(e) => setFormData({ ...formData, week_of_month: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Select</option>
+                          <option value="1">1st</option>
+                          <option value="2">2nd</option>
+                          <option value="3">3rd</option>
+                          <option value="4">4th</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">Day of Week</label>
+                        <select
+                          value={formData.day_of_week}
+                          onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Select</option>
+                          {daysOfWeek.map(day => (
+                            <option key={day} value={day}>{day}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <div>
                     <label className="block text-lg font-bold text-gray-700 mb-2">
                       Days <span className="text-red-600">*</span>
@@ -680,55 +861,6 @@ export default function Programs() {
                           <span className="text-lg text-gray-700">{day}</span>
                         </label>
                       ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-lg font-bold text-gray-700 mb-2">
-                      Event Date <span className="text-red-600">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Month</label>
-                        <select
-                          value={formData.event_date_month}
-                          onChange={(e) => setFormData({ ...formData, event_date_month: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {monthOptions.map(month => (
-                            <option key={month.value} value={month.value}>{month.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Day</label>
-                        <select
-                          value={formData.event_date_day}
-                          onChange={(e) => setFormData({ ...formData, event_date_day: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {dayOptions.map(day => (
-                            <option key={day} value={day}>{day}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Year</label>
-                        <select
-                          value={formData.event_date_year}
-                          onChange={(e) => setFormData({ ...formData, event_date_year: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {yearOptions.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -807,7 +939,7 @@ export default function Programs() {
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
             <div className="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
               <h3 className="text-3xl font-bold text-gray-900 mb-6">Edit Program</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-lg font-bold text-gray-700 mb-2">
@@ -846,11 +978,96 @@ export default function Programs() {
                   >
                     <option value="weekly">Weekly</option>
                     <option value="fortnightly">Fortnightly</option>
-                    <option value="one-time">One-Time Event</option>
+                    <option value="monthly">Monthly</option>
                   </select>
                 </div>
 
-                {formData.recurrence_type !== 'one-time' ? (
+                <div>
+                  <label className="block text-lg font-bold text-gray-700 mb-2">
+                    Start Date <span className="text-red-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Month</label>
+                      <select
+                        value={formData.start_date_month}
+                        onChange={(e) => setFormData({ ...formData, start_date_month: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {monthOptions.map(month => (
+                          <option key={month.value} value={month.value}>{month.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Day</label>
+                      <select
+                        value={formData.start_date_day}
+                        onChange={(e) => setFormData({ ...formData, start_date_day: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {dayOptions.map(day => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-600 mb-1">Year</label>
+                      <select
+                        value={formData.start_date_year}
+                        onChange={(e) => setFormData({ ...formData, start_date_year: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select</option>
+                        {yearOptions.map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {formData.recurrence_type === 'monthly' ? (
+                  <div>
+                    <label className="block text-lg font-bold text-gray-700 mb-2">
+                      Monthly Schedule <span className="text-red-600">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">Week of Month</label>
+                        <select
+                          value={formData.week_of_month}
+                          onChange={(e) => setFormData({ ...formData, week_of_month: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Select</option>
+                          <option value="1">1st</option>
+                          <option value="2">2nd</option>
+                          <option value="3">3rd</option>
+                          <option value="4">4th</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">Day of Week</label>
+                        <select
+                          value={formData.day_of_week}
+                          onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Select</option>
+                          {daysOfWeek.map(day => (
+                            <option key={day} value={day}>{day}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <div>
                     <label className="block text-lg font-bold text-gray-700 mb-2">
                       Days <span className="text-red-600">*</span>
@@ -867,55 +1084,6 @@ export default function Programs() {
                           <span className="text-lg text-gray-700">{day}</span>
                         </label>
                       ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-lg font-bold text-gray-700 mb-2">
-                      Event Date <span className="text-red-600">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Month</label>
-                        <select
-                          value={formData.event_date_month}
-                          onChange={(e) => setFormData({ ...formData, event_date_month: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {monthOptions.map(month => (
-                            <option key={month.value} value={month.value}>{month.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Day</label>
-                        <select
-                          value={formData.event_date_day}
-                          onChange={(e) => setFormData({ ...formData, event_date_day: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {dayOptions.map(day => (
-                            <option key={day} value={day}>{day}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">Year</label>
-                        <select
-                          value={formData.event_date_year}
-                          onChange={(e) => setFormData({ ...formData, event_date_year: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="">Select</option>
-                          {yearOptions.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
                 )}

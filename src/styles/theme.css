@@ -199,4 +199,26 @@
   .dark select {
     color: oklch(0.985 0 0); /* Light text for dark mode */
   }
+
+  /* Print styles for reports */
+  @media print {
+    @page {
+      margin: 1cm;
+    }
+
+    body {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .print\\:hidden {
+      display: none !important;
+    }
+
+    header,
+    aside,
+    nav {
+      display: none !important;
+    }
+  }
 }
