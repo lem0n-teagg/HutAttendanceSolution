@@ -1,3 +1,6 @@
+// Central routing configuration for the application.
+// All pages are protected by default — unauthenticated users are redirected
+// to /login before they can access any other route.
 import { createBrowserRouter, Navigate, Outlet } from 'react-router';
 import { useAuth, AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
@@ -7,14 +10,18 @@ import VolunteerDashboard from './pages/VolunteerDashboard';
 import AddParticipant from './pages/AddParticipant';
 import AddParticipantMultiStep from './pages/AddParticipantMultiStep';
 import SearchParticipant from './pages/SearchParticipant';
+import AddToProgram from './pages/AddToProgram';
+import ParticipantProfile from './pages/ParticipantProfile';
+import EditParticipant from './pages/EditParticipant';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Training from './pages/Training';
-import Approvals from './pages/Approvals';
 import Programs from './pages/Programs';
 import Debug from './pages/Debug';
 
-// Root layout that wraps everything with AuthProvider
+// Root layout that wraps everything with AuthProvider.
+// Placing AuthProvider here means every child route can call useAuth()
+// regardless of nesting depth.
 function RootLayout() {
   return (
     <AuthProvider>
@@ -23,10 +30,12 @@ function RootLayout() {
   );
 }
 
-// Protected Route wrapper
+// Gate component for routes that require a logged-in user.
+// Shows a spinner while the auth session is being resolved so the user
+// never sees a flash of the login page on a fresh load with a valid session.
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -37,18 +46,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
+  // Unauthenticated users are sent to login; replace prevents going back to the
+  // protected URL with the browser's back button.
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
-// Root redirect based on authentication and role
+// Handles the "/" root path — redirects authenticated users to the dashboard
+// and unauthenticated users to login.
 function RootRedirect() {
   const { isAuthenticated, user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -59,22 +71,19 @@ function RootRedirect() {
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
-  if (user?.role === 'volunteer') {
-    return <Navigate to="/volunteer-dashboard" replace />;
-  }
-  
+
   return <Navigate to="/dashboard" replace />;
 }
 
-// Login redirect - if already logged in, go to appropriate dashboard
+// Wrapper for the /login route — if the user is already authenticated,
+// skip the login page and go straight to the dashboard.
 function LoginRoute() {
   const { isAuthenticated, user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -85,14 +94,11 @@ function LoginRoute() {
       </div>
     );
   }
-  
+
   if (isAuthenticated) {
-    if (user?.role === 'volunteer') {
-      return <Navigate to="/volunteer-dashboard" replace />;
-    }
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <Login />;
 }
 
@@ -149,6 +155,30 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/add-to-program',
+        element: (
+          <ProtectedRoute>
+            <AddToProgram />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/participant/:id',
+        element: (
+          <ProtectedRoute>
+            <ParticipantProfile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/participant/:id/edit',
+        element: (
+          <ProtectedRoute>
+            <EditParticipant />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/attendance',
         element: (
           <ProtectedRoute>
@@ -169,14 +199,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Training />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/approvals',
-        element: (
-          <ProtectedRoute>
-            <Approvals />
           </ProtectedRoute>
         ),
       },

@@ -5,9 +5,11 @@ const supabaseUrl = supabaseConfig.url || 'https://placeholder.supabase.co';
 const supabaseAnonKey = supabaseConfig.anonKey || 'placeholder-key';
 
 // Check if credentials are configured
-const isConfigured = supabaseConfig.url !== '' && 
+const isConfigured = supabaseConfig.url !== '' &&
+                     supabaseConfig.url !== 'YOUR_SUPABASE_PROJECT_URL' &&
                      supabaseConfig.url !== 'YOUR_SUPABASE_URL_HERE' &&
                      supabaseConfig.anonKey !== '' &&
+                     supabaseConfig.anonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
                      supabaseConfig.anonKey !== 'YOUR_SUPABASE_ANON_KEY_HERE';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -18,8 +20,9 @@ export const isSupabaseConfigured = isConfigured;
 export interface Profile {
   id: string;
   email: string;
-  role: 'staff' | 'volunteer';
+  role: 'staff' | 'manager' | 'admin';
   full_name: string;
+  approved: boolean;
   created_at?: string;
 }
 

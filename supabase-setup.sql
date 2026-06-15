@@ -110,7 +110,7 @@ BEGIN
   VALUES (
     new.id,
     new.email,
-    COALESCE(new.raw_user_meta_data->>'role', 'volunteer'),
+    COALESCE(new.raw_user_meta_data->>'role', 'staff'),
     COALESCE(new.raw_user_meta_data->>'full_name', new.email)
   );
   RETURN new;
@@ -153,6 +153,8 @@ CREATE TABLE IF NOT EXISTS participants (
   emergency_contact_name TEXT NOT NULL,
   emergency_contact_phone TEXT NOT NULL,
   additional_requirements TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  deactivated_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -161,12 +163,28 @@ DO $$
 BEGIN
   -- Add gender column
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'participants' AND column_name = 'gender'
   ) THEN
     ALTER TABLE participants ADD COLUMN gender TEXT NOT NULL DEFAULT 'Prefer not to say';
     -- Remove default after adding the column so new inserts require it
     ALTER TABLE participants ALTER COLUMN gender DROP DEFAULT;
+  END IF;
+
+  -- Add home_tel column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'home_tel'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN home_tel TEXT;
+  END IF;
+
+  -- Add title column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'title'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN title TEXT;
   END IF;
 
   -- Add township column
@@ -300,10 +318,26 @@ BEGIN
 
   -- Add program specific data column (stored as JSON)
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'participants' AND column_name = 'program_specific_data'
   ) THEN
     ALTER TABLE participants ADD COLUMN program_specific_data JSONB;
+  END IF;
+
+  -- Add is_active column for profile deactivation
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+  END IF;
+
+  -- Add deactivated_at column for profile deactivation timestamp
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'participants' AND column_name = 'deactivated_at'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN deactivated_at TIMESTAMP WITH TIME ZONE;
   END IF;
 END $$;
 
@@ -312,36 +346,67 @@ CREATE TABLE IF NOT EXISTS programs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  days TEXT[] NOT NULL DEFAULT '{}', -- Array of days (empty for one-time events)
+  days TEXT[] NOT NULL DEFAULT '{}', -- Array of days (empty for monthly events)
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
   capacity INTEGER DEFAULT 20,
-  recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'one-time')),
-  event_date DATE, -- Date for one-time events
+  recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly')),
+  event_date DATE, -- DEPRECATED: kept for backward compatibility
+  start_date DATE, -- Start date for program tracking
+  week_of_month INTEGER, -- For monthly events: 1-4 for 1st/2nd/3rd/4th week
+  day_of_week TEXT, -- For monthly events: day of the week
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Add recurrence_type column to programs table if it doesn't exist
-DO $$ 
+DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'recurrence_type'
   ) THEN
-    ALTER TABLE programs ADD COLUMN recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'one-time'));
+    ALTER TABLE programs ADD COLUMN recurrence_type TEXT DEFAULT 'weekly' CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly'));
+  ELSE
+    -- Update existing constraint to replace 'one-time' with 'monthly'
+    ALTER TABLE programs DROP CONSTRAINT IF EXISTS programs_recurrence_type_check;
+    ALTER TABLE programs ADD CONSTRAINT programs_recurrence_type_check CHECK (recurrence_type IN ('weekly', 'fortnightly', 'monthly'));
   END IF;
-  
-  -- Add event_date column for one-time events
+
+  -- Add event_date column (deprecated, kept for backward compatibility)
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'event_date'
   ) THEN
     ALTER TABLE programs ADD COLUMN event_date DATE;
   END IF;
-  
-  -- Make days nullable/optional for one-time events
+
+  -- Add start_date column for program tracking
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'start_date'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN start_date DATE;
+  END IF;
+
+  -- Add week_of_month column for monthly events
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'week_of_month'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN week_of_month INTEGER;
+  END IF;
+
+  -- Add day_of_week column for monthly events
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'programs' AND column_name = 'day_of_week'
+  ) THEN
+    ALTER TABLE programs ADD COLUMN day_of_week TEXT;
+  END IF;
+
+  -- Make days nullable/optional for monthly events
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'programs' AND column_name = 'days' AND is_nullable = 'NO'
   ) THEN
     ALTER TABLE programs ALTER COLUMN days DROP NOT NULL;
@@ -355,8 +420,33 @@ CREATE TABLE IF NOT EXISTS program_enrollments (
   participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
   program_id UUID REFERENCES programs(id) ON DELETE CASCADE,
   enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  start_date TIMESTAMP WITH TIME ZONE,
+  end_date TIMESTAMP WITH TIME ZONE,
+  is_active BOOLEAN DEFAULT TRUE,
+  withdrawal_reason TEXT,
+  enrollment_data JSONB,
   UNIQUE(participant_id, program_id)
 );
+
+-- Add missing columns to program_enrollments if upgrading an existing database
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_enrollments' AND column_name = 'start_date') THEN
+    ALTER TABLE program_enrollments ADD COLUMN start_date TIMESTAMP WITH TIME ZONE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_enrollments' AND column_name = 'end_date') THEN
+    ALTER TABLE program_enrollments ADD COLUMN end_date TIMESTAMP WITH TIME ZONE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_enrollments' AND column_name = 'is_active') THEN
+    ALTER TABLE program_enrollments ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_enrollments' AND column_name = 'withdrawal_reason') THEN
+    ALTER TABLE program_enrollments ADD COLUMN withdrawal_reason TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_enrollments' AND column_name = 'enrollment_data') THEN
+    ALTER TABLE program_enrollments ADD COLUMN enrollment_data JSONB;
+  END IF;
+END $$;
 
 -- Create attendance_records table
 CREATE TABLE IF NOT EXISTS attendance_records (
@@ -503,16 +593,56 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_attendance
 
 -- Add helpful comments
 COMMENT ON TABLE participants IS 'Stores participant information';
+
+-- Program Specific Data Structure Documentation:
+-- The program_specific_data JSONB column stores additional information required for specific program categories:
+--
+-- For Children's Programs (Outdoor Playgroup, Homework Club, D&D, Intergenerational Mentoring):
+-- { "children": {
+--     childGivenName, childFamilyName, childGender, childDOB, childAboriginalTSI,
+--     childPhotoConsentWebsite, childPhotoConsentSocialMedia, childPhotoConsentAnnualReport,
+--     childPhotoConsentBrochures, childPhotoConsentLocalMedia,
+--     authorisedPerson1Name, authorisedPerson1Phone, authorisedPerson2Name, authorisedPerson2Phone,
+--     custodyIssues, custodyIssuesDetails, ownWayHomePermission, ownWayHomeDetails,
+--     schoolAttending, yearLevel
+--   }
+-- }
+--
+-- For Fitness & Wellbeing Programs (Community Fun Fitness, Strength & Balance, Chi Kung, Walking Group, Men's Moves):
+-- { "fitness": {
+--     healthConditions: [],  -- Array of selected medical conditions, or ["None"] if participant has no conditions.
+--                            -- Possible values: "None", "Breathing problems eg. Asthma, shortness of breath",
+--                            -- "Back or joint problems including arthritis, joint replacements",
+--                            -- "Recent fracture or heightened risk of fracture eg. Osteoporosis",
+--                            -- "Repetitive strain injury", "Sight impairment", "Difficulty hearing",
+--                            -- "High or low blood pressure", "Heart issues", "Diabetes", "Epilepsy",
+--                            -- "Stroke", "Neurological condition eg. MS, Parkinsons Disease", "Hernia",
+--                            -- "Recent medical procedure or surgery in the last 12 months?", "Other"
+--     otherConditionDetails: string,  -- Free-text description when "Other" is selected in healthConditions
+--     takingMedications: string,  -- "Yes" or "No" (skipped when healthConditions is ["None"])
+--     regularExercise: string,  -- Exercise level
+--     medicalProcedures: string,  -- Medical procedures in last 12 months
+--     medicalTreatmentAcknowledged: boolean,  -- Required acknowledgement
+--     medicalTreatmentAcknowledgedDate: date,
+--     healthDeclarationSigned: boolean,  -- Required for fitness programs
+--     healthDeclarationDate: date,
+--     medicalFormReceived: string,  -- "Yes", "No", or "n/a"
+--     medicalFormReceivedNotes: string  -- Optional notes
+--   }
+-- }
+
 COMMENT ON COLUMN participants.gender IS 'Participant gender: Man, Woman, Non-binary, or Prefer not to say';
 COMMENT ON COLUMN participants.township IS 'Adelaide Hills township or Other';
 COMMENT ON COLUMN participants.township_other IS 'Custom township name if Other is selected';
 COMMENT ON COLUMN participants.postal_address_line1 IS 'Postal address line 1 (if different from home address)';
 COMMENT ON COLUMN participants.postal_address_line2 IS 'Postal address line 2 (if different from home address)';
 COMMENT ON COLUMN participants.postal_postcode IS 'Postal postcode (if different from home postcode)';
+COMMENT ON COLUMN participants.home_tel IS 'Home telephone number (optional)';
+COMMENT ON COLUMN participants.title IS 'Participant title (Mr, Mrs, Ms, Miss, Dr, Other)';
 COMMENT ON COLUMN participants.receive_newsletter IS 'Whether participant wants to receive newsletters';
 COMMENT ON COLUMN participants.receive_course_notifications IS 'Whether participant wants to receive course/program notifications';
 COMMENT ON COLUMN participants.emergency_contact_address IS 'Emergency contact full address';
-COMMENT ON COLUMN participants.emergency_contact_relationship IS 'Relationship to emergency contact (e.g., spouse, parent)';
+COMMENT ON COLUMN participants.emergency_contact_relationship IS 'Relationship to emergency contact (Spouse/Partner, Son, Daughter, Friend, Relative, Neighbour, Other)';
 COMMENT ON COLUMN participants.identify_aboriginal_tsi IS 'Aboriginal or Torres Strait Islander identification';
 COMMENT ON COLUMN participants.speak_other_language IS 'Whether participant speaks a language other than English at home';
 COMMENT ON COLUMN participants.other_language_details IS 'Details of other languages spoken';
@@ -521,7 +651,7 @@ COMMENT ON COLUMN participants.cultural_identity IS 'Whether participant identif
 COMMENT ON COLUMN participants.cultural_identity_details IS 'Details of cultural identity';
 COMMENT ON COLUMN participants.referral_sources IS 'JSON array of how participant heard about The Hut';
 COMMENT ON COLUMN participants.photo_consent IS 'JSON object of photo/media consent permissions';
-COMMENT ON COLUMN participants.program_specific_data IS 'JSON object of program-specific requirements and information';
+COMMENT ON COLUMN participants.program_specific_data IS 'JSON object of program-specific requirements and information. See detailed structure documentation above.';
 
 COMMENT ON TABLE attendance_records IS 'Stores attendance records for participants in programs';
 COMMENT ON COLUMN attendance_records.id IS 'Unique identifier for the attendance record';
@@ -536,3 +666,51 @@ COMMENT ON COLUMN program_staff.id IS 'Unique identifier for the assignment';
 COMMENT ON COLUMN program_staff.program_id IS 'Reference to the program';
 COMMENT ON COLUMN program_staff.user_id IS 'Reference to the staff user';
 COMMENT ON COLUMN program_staff.assigned_at IS 'Timestamp when the assignment was created';
+
+-- ============================================
+-- DEFAULT PROGRAMS
+-- ============================================
+
+-- Insert default programs for The Hut Community Centre
+-- These are organized into three categories:
+-- 1. Children's Programs (purple theme)
+-- 2. Fitness & Wellbeing Programs (orange theme)
+-- 3. General Programs (green theme)
+
+-- Insert sample programs ONLY if the programs table is empty (prevents duplicates on re-runs)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM programs LIMIT 1) THEN
+    -- Children's Programs
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Outdoor Playgroup', 'A fun outdoor playgroup for young children to explore, play, and socialize in nature. Parent/guardian supervision required.', ARRAY['Tuesday', 'Thursday'], '09:30', '11:30', 15, 'weekly'),
+      ('Homework Club', 'After-school homework support and tutoring for primary and secondary students. Trained volunteers provide assistance with assignments and study skills.', ARRAY['Monday', 'Wednesday', 'Friday'], '15:30', '17:00', 20, 'weekly'),
+      ('Dungeons & Dragons', 'An exciting tabletop role-playing game for teens and young adults. Develop creativity, teamwork, and problem-solving skills in epic adventures.', ARRAY['Saturday'], '14:00', '17:00', 12, 'weekly'),
+      ('Intergenerational Mentoring', 'A unique program connecting young people with senior community members for mutual learning, skill-sharing, and friendship building.', ARRAY['Thursday'], '10:00', '12:00', 16, 'fortnightly');
+
+    -- Fitness & Wellbeing Programs
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Community Fun Fitness', 'Low-impact group fitness classes suitable for all ages and abilities. Includes stretching, cardio, and strength exercises in a supportive environment.', ARRAY['Monday', 'Wednesday', 'Friday'], '09:00', '10:00', 25, 'weekly'),
+      ('Strength & Balance (Stirling)', 'Specialized exercises for seniors focusing on improving strength, balance, and mobility to prevent falls and maintain independence.', ARRAY['Tuesday', 'Thursday'], '10:30', '11:30', 20, 'weekly'),
+      ('Chi Kung', 'Traditional Chinese gentle exercise combining movement, meditation, and breathing techniques. Great for reducing stress and improving wellbeing.', ARRAY['Wednesday'], '08:00', '09:00', 18, 'weekly'),
+      ('Walking Group', 'Join fellow community members for scenic walks through local trails and parks. All fitness levels welcome. Morning tea provided.', ARRAY['Friday'], '08:30', '10:00', 30, 'weekly'),
+      ('Men''s Moves', 'A health and wellbeing program specifically designed for men, focusing on fitness, mental health, and social connection.', ARRAY['Saturday'], '09:00', '11:00', 20, 'weekly');
+
+    -- General Programs (examples - add more as needed)
+    INSERT INTO programs (name, description, days, start_time, end_time, capacity, recurrence_type)
+    VALUES
+      ('Art Workshop', 'Explore various art techniques including painting, drawing, and mixed media. All materials provided. Suitable for beginners to advanced.', ARRAY['Tuesday'], '13:00', '15:30', 15, 'weekly'),
+      ('Community Lunch', 'Share a nutritious meal with neighbors and make new friends. Different cultural cuisines featured each week. Gold coin donation.', ARRAY['Wednesday'], '12:00', '14:00', 40, 'weekly'),
+      ('Digital Skills Class', 'Learn essential computer and smartphone skills including email, internet safety, social media, and online services. Bring your own device.', ARRAY['Thursday'], '14:00', '16:00', 12, 'weekly'),
+      ('Gardening Club', 'Work together to maintain The Hut''s community garden. Learn sustainable gardening practices and take home fresh produce.', ARRAY['Saturday'], '09:00', '11:00', 15, 'weekly');
+
+    RAISE NOTICE 'Sample programs inserted successfully';
+  ELSE
+    RAISE NOTICE 'Programs table already contains data - skipping sample data insertion';
+  END IF;
+END $$;
+
+-- Add helpful comment
+COMMENT ON TABLE programs IS 'Stores program information. Default programs include Children''s Programs, Fitness & Wellbeing Programs, and General Programs.';

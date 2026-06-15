@@ -1,29 +1,35 @@
 import { useNavigate } from 'react-router';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardCheck, UserPlus, UserCheck, Search, BarChart3, GraduationCap, CheckCircle, FolderOpen } from 'lucide-react';
+import { ClipboardCheck, UserPlus, UserCheck, Search, BarChart3, GraduationCap, FolderOpen } from 'lucide-react';
 
+// Main dashboard page — the landing screen after login.
+// Shows a grid of action tiles, each navigating to a specific feature.
+// Tiles are conditionally rendered based on the user's role so staff only
+// see what they are permitted to use.
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Check if user can access a feature based on their role
+  // Role-based access control for dashboard tiles.
+  // This mirrors the server-side RLS policies in Supabase — it is a UI
+  // convenience only, not a security boundary.
   const canAccess = (feature: string) => {
-    // Everyone can access Mark Attendance and Staff Training
+    // All roles can mark attendance and view training materials.
     if (feature === 'attendance' || feature === 'training') {
       return true;
     }
-    
-    // Manager and Admin can access Register Participant and Add to Program
+
+    // Managers and admins can register participants and enrol them in programs.
     if (feature === 'add-participant' || feature === 'add-to-program') {
       return user?.role === 'manager' || user?.role === 'admin';
     }
-    
-    // Only Admin can access Search, Programs, Reports, and Approvals
-    if (feature === 'search' || feature === 'programs' || feature === 'reports' || feature === 'approvals') {
+
+    // Search, program management, and reports are restricted to admins.
+    if (feature === 'search' || feature === 'programs' || feature === 'reports') {
       return user?.role === 'admin';
     }
-    
+
     return false;
   };
 
@@ -73,7 +79,7 @@ export default function Dashboard() {
           {/* Add to Program - Manager and Admin Only */}
           {canAccess('add-to-program') && (
             <button
-              onClick={() => navigate('/search?action=add-to-program')}
+              onClick={() => navigate('/add-to-program')}
               className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-8 md:p-10 rounded-3xl shadow-2xl hover:shadow-purple-300 hover:scale-105 transition-all duration-300 text-left group"
             >
               <div className="bg-white/20 w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
@@ -148,21 +154,6 @@ export default function Dashboard() {
             </p>
           </button>
 
-          {/* User Approvals - Admin Only */}
-          {canAccess('approvals') && (
-            <button
-              onClick={() => navigate('/approvals')}
-              className="bg-gradient-to-br from-pink-500 to-pink-600 text-white p-8 md:p-10 rounded-3xl shadow-2xl hover:shadow-pink-300 hover:scale-105 transition-all duration-300 text-left group"
-            >
-              <div className="bg-white/20 w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
-                <CheckCircle size={48} className="md:w-14 md:h-14" />
-              </div>
-              <h3 className="text-3xl md:text-4xl font-bold mb-3">User Approvals</h3>
-              <p className="text-lg md:text-xl text-pink-100">
-                Review and approve new user registrations
-              </p>
-            </button>
-          )}
         </div>
 
         {/* Quick Stats */}
